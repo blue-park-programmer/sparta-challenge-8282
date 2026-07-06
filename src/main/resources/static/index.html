@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sparta Delivery</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .card {
+            text-align: center;
+            padding: 3rem 3.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        .emoji { font-size: 4rem; margin-bottom: 1rem; }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        p { font-size: 1rem; opacity: 0.85; margin-bottom: 1.5rem; }
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            background: rgba(46, 204, 113, 0.9);
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="emoji">🛵</div>
+        <h1>Sparta Delivery</h1>
+        <p>배달 서비스에 오신 것을 환영합니다</p>
+        <span class="badge">● 서버 정상 작동 중</span>
+    </div>
+</body>
+</html>
