@@ -52,20 +52,15 @@ public class Region extends BaseEntity {
         }
     }
 
-    public void activate() {
-        this.isActive = true;
+    public void changeActive(Boolean isActive) {
+        if (isActive != null) {
+            this.isActive = isActive;
+        }
     }
-
-    public void deactivate() {
-        this.isActive = false;
-    }
-
-    public void openService() {
-        this.isServiceAvailable = true;
-    }
-
-    public void closeService() {
-        this.isServiceAvailable = false;
+    public void changeServiceAvailable(Boolean isServiceAvailable) {
+        if (isServiceAvailable != null) {
+            this.isServiceAvailable = isServiceAvailable;
+        }
     }
 
 }
