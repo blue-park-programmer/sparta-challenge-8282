@@ -1,6 +1,8 @@
 package com.sparta.spartachallenge8282.global.common;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
@@ -13,10 +15,18 @@ import java.time.LocalDateTime;
 /**
  * 모든 엔티티의 공통 베이스 클래스.
  *
- * <p>Spring Data JPA Auditing으로 자동 관리되는 필드:
+ * <p><b>id(PK)는 포함하지 않는다.</b>
+ * 각 엔티티가 자신의 PK 타입을 직접 선언한다.
+ * <ul>
+ *   <li>User  → {@code @Id Long id}         (BIGINT AUTO_INCREMENT)</li>
+ *   <li>Store → {@code @Id @UuidGenerator UUID id} (UUID)</li>
+ *   <li>Order → {@code @Id @UuidGenerator UUID id} (UUID)</li>
+ * </ul>
+ *
+ * <p>Auditing 자동 관리 필드:
  * <ul>
  *   <li>createdAt  - 생성 시각 (not null, 이후 변경 불가)</li>
- *   <li>createdBy  - 생성한 사용자 ID (not null, 이후 변경 불가)</li>
+ *   <li>createdBy  - 생성한 사용자 ID (이후 변경 불가)</li>
  *   <li>updatedAt  - 마지막 수정 시각</li>
  *   <li>updatedBy  - 마지막 수정한 사용자 ID</li>
  * </ul>
@@ -32,10 +42,6 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     // ── 생성 정보 ──────────────────────────────────────────────────────────────
 
     @CreatedDate
@@ -43,7 +49,7 @@ public abstract class BaseEntity {
     private LocalDateTime createdAt;
 
     @CreatedBy
-    @Column(nullable = false, updatable = false)
+    @Column(updatable = false)
     private Long createdBy;
 
     // ── 수정 정보 ──────────────────────────────────────────────────────────────
