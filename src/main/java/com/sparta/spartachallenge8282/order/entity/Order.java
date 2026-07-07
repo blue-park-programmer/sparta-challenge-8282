@@ -77,7 +77,7 @@ public class Order extends BaseEntity {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    public Order(
+    private Order(
             String orderNumber,
             Long userId,
             UUID storeId,
@@ -99,6 +99,30 @@ public class Order extends BaseEntity {
         this.deliveryAddress = deliveryAddress;
         this.deliveryDetailAddress = deliveryDetailAddress;
         this.requestMessage = requestMessage;
+    }
+
+    public static Order create(
+            String orderNumber,
+            Long userId,
+            UUID storeId,
+            int menuTotalPrice,
+            int discountAmount,
+            int deliveryFee,
+            String deliveryAddress,
+            String deliveryDetailAddress,
+            String requestMessage
+    ) {
+        return new Order(
+                orderNumber,
+                userId,
+                storeId,
+                menuTotalPrice,
+                discountAmount,
+                deliveryFee,
+                deliveryAddress,
+                deliveryDetailAddress,
+                requestMessage
+        );
     }
 
     /*
