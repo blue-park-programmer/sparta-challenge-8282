@@ -1,6 +1,5 @@
 package com.sparta.spartachallenge8282.global.security;
 
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,7 +49,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private void setAuthentication(String token) {
 
         Long userId = jwtProvider.getUserIdFromToken(token);
-        String username = jwtProvider.getUsernameFromToken(token);
+        String username = jwtProvider.getEmailFromToken(token);
         String role = jwtProvider.getRoleFromToken(token);
 
         UserDetailsImpl userDetails = new UserDetailsImpl(userId, username, role);

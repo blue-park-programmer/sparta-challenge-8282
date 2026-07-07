@@ -1,6 +1,9 @@
 package com.sparta.spartachallenge8282.global.security;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +15,7 @@ import java.util.Date;
 
 /**
  * JWT 액세스/리프레시 토큰 생성·파싱·검증 유틸리티
- *
+ * <p>
  * iat: 발급 시간(Issued At)
  * exp : 만료 시간(Expiration)
  *
@@ -29,7 +32,7 @@ public class JwtProvider {
     public static final String BEARER_PREFIX = "Bearer ";
 
     public static final String CLAIM_USER_ID = "userId";
-    public static final String CLAIM_ROLE    = "role";
+    public static final String CLAIM_ROLE = "role";
 
     private final SecretKey secretKey;
     private final long accessExpirationMs;
@@ -40,9 +43,9 @@ public class JwtProvider {
             @Value("${jwt.access-expiration-ms:3600000}") long accessExpirationMs,
             @Value("${jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs
     ) {
-        this.secretKey            = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.accessExpirationMs   = accessExpirationMs;
-        this.refreshExpirationMs  = refreshExpirationMs;
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.accessExpirationMs = accessExpirationMs;
+        this.refreshExpirationMs = refreshExpirationMs;
     }
 
     // ── 토큰 생성 ──────────────────────────────────────────────────────────────
@@ -50,14 +53,14 @@ public class JwtProvider {
     /**
      * 액세스 토큰 생성 (Bearer 접두사 포함).
      *
-     * @param userId   사용자 PK (AuditorAware 등 내부 사용)
-     * @param username 사용자 아이디 (subject, PRD 스펙)
-     * @param role     역할 문자열 (ex. "ROLE_CUSTOMER")
+     * @param userId 사용자 PK (AuditorAware 등 내부 사용)
+     * @param email  사용자 아이디 (subject, PRD 스펙)
+     * @param role   역할 문자열 (ex. "ROLE_CUSTOMER")
      */
-    public String createAccessToken(Long userId, String username, String role) {
+    public String createAccessToken(Long userId, String email, String role) {
         Date now = new Date();
         String token = Jwts.builder()
-                .subject(username)
+                .subject(email)
                 .claim(CLAIM_USER_ID, userId)
                 .claim(CLAIM_ROLE, role)
                 .issuedAt(now)
@@ -69,14 +72,14 @@ public class JwtProvider {
 
     /**
      * 리프레시 토큰 생성 (Bearer 접두사 없음, DB에 저장).
-     * userId·role 미포함 — 재발급 시 username으로 DB 조회 후 최신 정보 반영.
+     * userId·role 미포함 — 재발급 시 email으로 DB 조회 후 최신 정보 반영.
      *
-     * @param username 사용자 아이디 (subject)
+     * @param email 사용자 아이디 (subject)
      */
-    public String createRefreshToken(String username) {
+    public String createRefreshToken(String email) {
         Date now = new Date();
         return Jwts.builder()
-                .subject(username)
+                .subject(email)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + refreshExpirationMs))
                 .signWith(secretKey)
@@ -96,7 +99,9 @@ public class JwtProvider {
         return null;
     }
 
-    /** 토큰 파싱 → Claims 반환 (만료된 토큰은 ExpiredJwtException 발생) */
+    /**
+     * 토큰 파싱 → Claims 반환 (만료된 토큰은 ExpiredJwtException 발생)
+     */
     public Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
@@ -125,7 +130,7 @@ public class JwtProvider {
 
     /**
      * 리프레시 토큰 유효성 검증.
-     * 만료·변조 여부를 확인하고 subject(username)를 반환한다.
+     * 만료·변조 여부를 확인하고 subject(email)를 반환한다.
      * 유효하지 않으면 null 반환.
      *
      * @param refreshToken DB에 저장된 리프레시 토큰 원문
@@ -143,7 +148,7 @@ public class JwtProvider {
 
     // ── Claims 추출 헬퍼 ───────────────────────────────────────────────────────
 
-    public String getUsernameFromToken(String token) {
+    public String getEmailFromToken(String token) {
         return parseClaims(token).getSubject();
     }
 
