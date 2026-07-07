@@ -10,7 +10,7 @@ import java.util.UUID;
  * 주문 생성 응답 DTO
  * - Order 엔티티를 클라이언트 응답 형태로 변환
  */
-public record OrderCreateResponse(
+public record OrderCreateResponseDto(
         UUID orderId,
         String orderNumber,
         OrderStatus orderStatus,
@@ -21,8 +21,8 @@ public record OrderCreateResponse(
         LocalDateTime orderedAt
 ) {
 
-    public static OrderCreateResponse from(Order order) {
-        return new OrderCreateResponse(
+    public static OrderCreateResponseDto from(Order order) {
+        return new OrderCreateResponseDto(
                 order.getId(),
                 order.getOrderNumber(),
                 order.getOrderStatus(),

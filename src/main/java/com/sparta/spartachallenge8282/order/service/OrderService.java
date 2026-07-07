@@ -2,8 +2,8 @@ package com.sparta.spartachallenge8282.order.service;
 
 import com.sparta.spartachallenge8282.order.entity.Order;
 import com.sparta.spartachallenge8282.order.repository.OrderRepository;
-import com.sparta.spartachallenge8282.order.dto.request.OrderCreateRequest;
-import com.sparta.spartachallenge8282.order.dto.response.OrderCreateResponse;
+import com.sparta.spartachallenge8282.order.dto.request.OrderCreateRequestDto;
+import com.sparta.spartachallenge8282.order.dto.response.OrderCreateResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,9 +25,9 @@ public class OrderService {
      * 주문 생성
      * 현재 단계에서 메뉴 금액은 임시로 0원 처리
      */
-    public OrderCreateResponse createOrder(
+    public OrderCreateResponseDto createOrder(
             Long userId,
-            OrderCreateRequest request
+            OrderCreateRequestDto request
     ) {
         int menuTotalPrice = calculateMenuTotalPrice(request);
         int discountAmount = DEFAULT_DISCOUNT_AMOUNT;
@@ -47,7 +47,7 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        return OrderCreateResponse.from(savedOrder);
+        return OrderCreateResponseDto.from(savedOrder);
     }
 
     /**
@@ -56,7 +56,7 @@ public class OrderService {
      * 지금은 MenuRepository가 없으므로 임시값.
      * 나중에는 menuId로 메뉴를 조회해서 가격 * 수량으로 계산해야 한다.
      */
-    private int calculateMenuTotalPrice(OrderCreateRequest request) {
+    private int calculateMenuTotalPrice(OrderCreateRequestDto request) {
         return 0;
     }
 
