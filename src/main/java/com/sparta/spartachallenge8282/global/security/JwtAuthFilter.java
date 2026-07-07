@@ -18,9 +18,11 @@ import java.util.List;
 
 /**
  * JWT 인증 필터.
- * Authorization 헤더에서 Bearer 토큰을 추출하고 검증한 뒤 SecurityContext에 인증 정보를 설정한다.
- * 토큰이 없거나 유효하지 않은 경우에는 SecurityContext를 설정하지 않고 다음 필터로 넘긴다.
- * (인가 실패는 AuthEntryPoint / AccessDeniedHandler가 담당)
+ * Authorization 헤더에서 Bearer 액세스 토큰을 추출·검증하고
+ * SecurityContext에 인증 정보(UserDetailsImpl)를 설정한다.
+ *
+ * <p>토큰이 없거나 유효하지 않으면 SecurityContext를 설정하지 않고 다음 필터로 넘긴다.
+ * 인증 필요 엔드포인트에서의 최종 거부는 AuthEntryPoint가 담당한다.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -46,12 +48,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private void setAuthentication(String token) {
-        Claims claims = jwtProvider.parseClaims(token);
-        Long userId   = Long.parseLong(claims.getSubject());
-        String email  = claims.get("email", String.class);
-        String role   = claims.get("role",  String.class);
 
-        UserDetailsImpl userDetails = new UserDetailsImpl(userId, email, role);
+        Long userId = jwtProvider.getUserIdFromToken(token);
+        String username = jwtProvider.getUsernameFromToken(token);
+        String role = jwtProvider.getRoleFromToken(token);
+
+        UserDetailsImpl userDetails = new UserDetailsImpl(userId, username, role);
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         userDetails,
