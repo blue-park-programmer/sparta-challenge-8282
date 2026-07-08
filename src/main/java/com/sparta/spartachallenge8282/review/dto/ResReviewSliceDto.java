@@ -7,23 +7,24 @@ import org.springframework.data.domain.Slice;
 
 import java.util.List;
 import java.util.stream.Collectors;
+/**
+ * 리뷰 슬라이스 응답 DTO.
+ * 가게별 리뷰 목록을 페이징(Slice) 처리한 응답 데이터.
+ */
 
-@Getter
-@Builder
-public class ResReviewSliceDto {
-
-    private List<ResReviewListItemDto> content;
-    private boolean hasNext;
+public record ResReviewSliceDto(
+        List<ResReviewListItemDto> content,
+        boolean hasNext
+) {
 
     public static ResReviewSliceDto from(Slice<Review> slice) {
         List<ResReviewListItemDto> content = slice.getContent().stream()
                 .map(ResReviewListItemDto::from)
                 .collect(Collectors.toList());
 
-        return ResReviewSliceDto.builder()
-                .content(content)
-                .hasNext(slice.hasNext())
-                .build();
+        return new ResReviewSliceDto(
+                content,
+                slice.hasNext()
+        );
     }
-
 }

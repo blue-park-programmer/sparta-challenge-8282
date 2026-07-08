@@ -19,6 +19,7 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
 
+    @Transactional
     public ResReviewResultDto createReview(ReqCreateReviewDto requestDto, Long userId, UUID storeId) {
         Review review = Review.builder()
                 .requestDto(requestDto)

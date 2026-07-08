@@ -7,26 +7,29 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Getter
-@Builder
-public class ResReviewDto {
+/**
+ * 리뷰 데이터 응답 DTO
+ * 리뷰에 필요한 데이터
+ * */
 
-    private UUID reviewId;
-    private UUID storeId;
-    private Integer rating;
-    private String content;
-    private String imageUrl;
-    private LocalDateTime createdAt;
+public record ResReviewDto (
+
+        UUID reviewId,
+        UUID storeId,
+        Integer rating,
+        String content,
+        String imageUrl,
+        LocalDateTime createdAt
+) {
 
     public static ResReviewDto from(Review review) {
-        return ResReviewDto.builder()
-                .reviewId(review.getId())
-                .storeId(review.getStoreId())
-                .rating(review.getRating())
-                .content(review.getContent())
-                .imageUrl(review.getImageUrl())
-                .createdAt(review.getCreatedAt()) // BaseEntity 필드명 확인 필요!
-                .build();
+        return new ResReviewDto(
+                review.getId(),
+                review.getStoreId(),
+                review.getRating(),
+                review.getContent(),
+                review.getImageUrl(),
+                review.getCreatedAt()
+        );
     }
-
 }

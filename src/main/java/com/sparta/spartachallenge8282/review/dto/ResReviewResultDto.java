@@ -4,21 +4,15 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.util.UUID;
+/**
+ * 리뷰 응답 DTO
+ * 리뷰 응답시 리뷰 아이디를 반환 -> API 응답 확인용
+ * */
 
-@Getter
-public class ResReviewResultDto {
-
-    private final UUID reviewId;
-
-    @Builder
-    public ResReviewResultDto(UUID reviewId) {
-        this.reviewId = reviewId;
-    }
-
+public record ResReviewResultDto (
+       UUID reviewId
+) {
     public static ResReviewResultDto from(UUID reviewId) {
-        return ResReviewResultDto.builder()
-                .reviewId(reviewId)
-                .build();
+        return new ResReviewResultDto(reviewId);
     }
-
 }

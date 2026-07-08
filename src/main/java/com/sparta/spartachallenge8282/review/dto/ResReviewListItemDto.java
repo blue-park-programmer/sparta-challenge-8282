@@ -8,28 +8,34 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Getter
-@Builder    // 중요한 정보(user_id 등)이 들어가지 않으므로 클래스에 선언하여 사용함.
-public class ResReviewListItemDto {
+/**
+ * 리뷰 리스트 응답 DTO
+ * 리뷰 목록을 조회
+ * */
 
-    private UUID reviewId;
-    private String userNickname;
-    private Integer rating;
-    private String content;
-    private String imageUrl;
-    private Object reply; // 임시 답글 객체
-    private LocalDateTime createdAt;
+public record ResReviewListItemDto (
+        UUID reviewId,
+        String userNickname,
+        Integer rating,
+        String content,
+        String imageUrl,
+        Object reply, // 임시 답글 객체
+        LocalDateTime createdAt
+) {
+
+
 
     public static ResReviewListItemDto from(Review review) {
-        return ResReviewListItemDto.builder()
-                .reviewId(review.getId())
-                .userNickname(null)
-                .rating(review.getRating())
-                .content(review.getContent())
-                .imageUrl(review.getImageUrl())
-                .reply(null)
-                .createdAt(review.getCreatedAt())
-                .build();
+        return new ResReviewListItemDto(
+                review.getId(),
+                null,
+                review.getRating(),
+                review.getContent(),
+                review.getImageUrl(),
+                null,
+                review.getCreatedAt()
+        );
+
     }
 
 }

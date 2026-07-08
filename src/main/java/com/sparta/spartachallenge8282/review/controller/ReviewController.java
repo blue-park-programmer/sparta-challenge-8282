@@ -22,7 +22,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    // 요청 받아서 dto를 넘겨줌
+    // 리뷰 작성
     @PostMapping("/reviews")
     public ResponseEntity<ApiResponse<ResReviewResultDto>> createReview(
             @RequestParam Long userId, // TODO: JWT 완성되면 @AuthenticationPrincipal로 교체
@@ -46,6 +46,7 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
     }
 
+    // 리뷰 상세보기
     @GetMapping("/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<ResReviewDto>> getReview(
             @PathVariable UUID reviewId) {
@@ -55,10 +56,11 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
     }
 
+    // 리뷰 수정하기
     @PatchMapping("/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<ResReviewResultDto>> updateReview(
             @PathVariable UUID reviewId,
-            @RequestParam Long userId,
+            @RequestParam Long userId, // TODO: JWT 완성되면 @AuthenticationPrincipal로 교체
             @Valid @RequestBody ReqUpdateReviewDto requestDto) {
 
         ResReviewResultDto response = reviewService.updateReview(reviewId, userId, requestDto);
@@ -66,6 +68,7 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.success("리뷰가 수정되었습니다.", response));
     }
 
+    // 리뷰 삭제하기
     @DeleteMapping("/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> deleteReview(
             @PathVariable UUID reviewId,

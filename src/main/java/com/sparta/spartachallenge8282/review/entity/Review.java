@@ -17,36 +17,42 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Review extends BaseEntity {
 
+    // 리뷰 ID
     @Id
     @GeneratedValue
     @UuidGenerator
     private UUID id;
 
+    // 주문 ID
     @Column(nullable = false, unique = true)
     private UUID orderId;
 
+    // 유저 ID
     @Column(nullable = false)
     private Long userId;
 
+    // 가게 ID
     @Column(nullable = false)
     private UUID storeId;
 
+    // 평점
     @Column(nullable = false)
     private Integer rating;
 
+    // 내용
     private String content;
 
+    // 이미지 -> 현재는 한 개만 등록되도록 구현, 여러 장 일 시 수정필요
     private String imageUrl;
-
 
     @Builder
     private Review(ReqCreateReviewDto requestDto, Long userId, UUID storeId) {
-        this.orderId = requestDto.getOrderId();
+        this.orderId = requestDto.orderId();
         this.userId = userId;
         this.storeId = storeId;
-        this.rating = requestDto.getRating();
-        this.content = requestDto.getContent();
-        this.imageUrl = requestDto.getImageUrl();
+        this.rating = requestDto.rating();
+        this.content = requestDto.content();
+        this.imageUrl = requestDto.imageUrl();
     }
 
     // 리뷰 수정 - null인 필드는 기존 값 유지
