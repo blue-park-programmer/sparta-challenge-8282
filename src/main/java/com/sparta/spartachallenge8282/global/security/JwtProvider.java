@@ -16,14 +16,27 @@ import java.util.Date;
 /**
  * JWT 액세스/리프레시 토큰 생성·파싱·검증 유틸리티
  * <p>
- * iat: 발급 시간(Issued At)
+ * iat : 발급 시간(Issued At)
  * exp : 만료 시간(Expiration)
- *
- * <p><b>액세스 토큰 payload</b>: { sub: username, userId: 1L, role: "ROLE_CUSTOMER", iat, exp }
- * <p><b>리프레시 토큰 payload</b>: { sub: username, iat, exp } — 클레임 최소화
- *
- * <p>PRD 스펙: payload = { username, role, iat, exp }
- * userId는 서버 내부 처리(AuditorAware 등)를 위해 추가로 포함한다.
+ * <p>
+ * 액세스 토큰 payload
+ * {
+ * sub : email,
+ * userId : 1,
+ * role : "ROLE_CUSTOMER",
+ * iat,
+ * exp
+ * }
+ * <p>
+ * 리프레시 토큰 payload
+ * {
+ * sub : email,
+ * iat,
+ * exp
+ * }
+ * <p>
+ * email은 JWT Subject(sub)에 저장되며,
+ * userId는 서버 내부 처리(AuditorAware 등)를 위해 별도 Claim으로 저장한다.
  */
 @Slf4j
 @Component

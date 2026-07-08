@@ -8,19 +8,19 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Spring Security UserDetails 구현체.
- * JWT 파싱 결과(userId, email, role)를 SecurityContext에 담아
- * 컨트롤러에서 @AuthenticationPrincipal로 꺼내 쓴다.
+ * Spring Security UserDetails
+ * <p>
+ * JWT 파싱 결과(userId, email, role)를 SecurityContext에 저장하여
+ * 컨트롤러에서 @AuthenticationPrincipal로 사용할 수 있다.
  *
  * <pre>
- * 컨트롤러 사용 예:
- *   @AuthenticationPrincipal UserDetailsImpl userDetails
- *   userDetails.getUserId()   → Long   (DB PK, AuditorAware 등 내부 사용)
- *   userDetails.getUsername() → String (JWT subject = email)
- *   userDetails.getRole()     → String (ex. "ROLE_CUSTOMER")
- * </pre>
+ * @AuthenticationPrincipal UserDetailsImpl userDetails
  *
- * @param email JWT subject (PRD 스펙: payload의 username)
+ * userDetails.userId()      → DB PK
+ * userDetails.email()       → 로그인 이메일
+ * userDetails.getUsername() → Spring Security에서 사용하는 username(email 반환)
+ * userDetails.role()        → ROLE_CUSTOMER
+ * </pre>
  */
 public record UserDetailsImpl(Long userId, String email, String role) implements UserDetails {
 
