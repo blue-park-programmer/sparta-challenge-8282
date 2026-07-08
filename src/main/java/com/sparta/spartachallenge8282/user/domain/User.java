@@ -10,9 +10,10 @@ import lombok.NoArgsConstructor;
 /**
  * 사용자 엔티티.
  *
- * <p>어드민(관리자)이 탈퇴 유저 목록을 조회할 수 있도록
- * 클래스 레벨의 SQL 제한(@SQLRestriction)은 사용하지 않으며,
- * 일반 비즈니스 쿼리 시 Repository단에서 soft delete 여부를 필터링한다.
+ * <p>이메일 중복 제약 조건:
+ * 소프트 딜리트(재가입 허용) 구조를 위해 JPA 레벨의 unique = true 제약 조건을 제거하고,
+ * DB 단에 {@code CREATE UNIQUE INDEX uq_user_email ON p_user (email) WHERE (deleted_at IS NULL)}
+ * 형식의 부분 고유 인덱스(Partial Unique Index) 설정을 권장한다.
  */
 @Entity
 @Table(name = "p_user")
@@ -24,8 +25,8 @@ public class User extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 255)
-    private String email;
+    @Column(nullable = false, length = 255)
+    private String email; // 로그인 아이디 겸용 (재가입 지원을 위해 unique = true 제거)
 
     @Column(nullable = false, length = 255)
     private String password; // 암호화된 비밀번호
