@@ -31,6 +31,7 @@ public class ReviewService {
                 .storeId(storeId)
                 .build();
 
+        //생성이 완료되면 생성된 리뷰의 아이디를 반환
         return ReviewResultResponseDto.from(reviewRepository.save(review).getId());
     }
 
@@ -47,7 +48,7 @@ public class ReviewService {
     public ReviewResponseDto getReview(UUID reviewId) {
 
         Review review = reviewRepository.findByIdAndDeletedAtIsNull(reviewId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));// TODO: REVIEW_NOT_FOUND(80006)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
 
         return ReviewResponseDto.from(review);
     }
@@ -56,13 +57,13 @@ public class ReviewService {
     public ReviewResultResponseDto updateReview(UUID reviewId, Long userId, ReviewUpdateRequestDto requestDto) {
 
         Review review = reviewRepository.findByIdAndDeletedAtIsNull(reviewId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND)); // TODO: REVIEW_NOT_FOUND(80006)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
 
         if (!review.getUserId().equals(userId)) {
-            throw new CustomException(ErrorCode.ACCESS_DENIED); // TODO: NOT_REVIEW_OWNER(80005)
+            throw new CustomException(ErrorCode.NOT_REVIEW_OWNER);
         }
 
-        review.update(requestDto.getRating(), requestDto.getContent(), requestDto.getImageUrl());
+        review.update(requestDto.rating(), requestDto.content(), requestDto.imageUrl());
 
         return ReviewResultResponseDto.from(review.getId());
     }
@@ -71,10 +72,10 @@ public class ReviewService {
     public void deleteReview(UUID reviewId, Long userId) {
 
         Review review = reviewRepository.findByIdAndDeletedAtIsNull(reviewId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND)); // TODO: REVIEW_NOT_FOUND(80006)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND)); // TODO: REVIEW_NOT_FOUND(80006)
 
         if (!review.getUserId().equals(userId)) {
-            throw new CustomException(ErrorCode.ACCESS_DENIED); // TODO: NOT_REVIEW_OWNER(80005)
+            throw new CustomException(ErrorCode.NOT_REVIEW_OWNER); // TODO: NOT_REVIEW_OWNER(80005)
         }
 
         review.softDelete(userId);

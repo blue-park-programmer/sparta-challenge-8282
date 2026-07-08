@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 /**
  * 리뷰 슬라이스 응답 DTO.
- * 가게별 리뷰 목록을 페이징(Slice) 처리한 응답 데이터.
+ * 가게별 리뷰 목록을 페이징(Slice) 처리한 응답 데이터
  */
 
 public record ReviewSliceResponseDto(
