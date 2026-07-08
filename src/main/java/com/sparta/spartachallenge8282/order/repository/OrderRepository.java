@@ -1,6 +1,8 @@
 package com.sparta.spartachallenge8282.order.repository;
 
 import com.sparta.spartachallenge8282.order.entity.Order;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -20,6 +22,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
      */
     Optional<Order> findByIdAndDeletedAtIsNull(UUID orderId);
 
-    //주문 목록 조회
-    List<Order> findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId);
+    //주문 목록 조회 + 페이징
+    Page<Order> findAllByUserIdAndDeletedAtIsNull(
+            Long userId,
+            Pageable pageable
+    );
 }

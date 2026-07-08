@@ -1,6 +1,7 @@
 package com.sparta.spartachallenge8282.order.controller;
 
 import com.sparta.spartachallenge8282.global.common.ApiResponse;
+import com.sparta.spartachallenge8282.global.common.PageResponse;
 import com.sparta.spartachallenge8282.order.dto.request.OrderCreateRequestDto;
 import com.sparta.spartachallenge8282.order.dto.response.OrderCreateResponseDto;
 import com.sparta.spartachallenge8282.order.dto.response.OrderDetailResponseDto;
@@ -9,6 +10,7 @@ import com.sparta.spartachallenge8282.order.dto.response.OrderListResponseDto;
 import com.sparta.spartachallenge8282.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -78,10 +80,15 @@ public class OrderController {
         );
     }
 
-    // 주문 목록 조회
+    // 주문 목록 조회 + 페이징
     @GetMapping
-    public ResponseEntity<ApiResponse<List<OrderListResponseDto>>> getOrders() {
-        List<OrderListResponseDto> response = orderService.getOrders(TEMP_CUSTOMER_ID);
+    public ResponseEntity<ApiResponse<PageResponse<OrderListResponseDto>>> getOrders(
+            Pageable pageable
+    ) {
+        PageResponse<OrderListResponseDto> response = orderService.getOrders(
+                TEMP_CUSTOMER_ID,
+                pageable
+        );
 
         return ResponseEntity.ok(
                 ApiResponse.success("주문 목록 조회 성공", response)

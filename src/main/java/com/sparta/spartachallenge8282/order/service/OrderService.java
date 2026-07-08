@@ -1,5 +1,6 @@
 package com.sparta.spartachallenge8282.order.service;
 
+import com.sparta.spartachallenge8282.global.common.PageResponse;
 import com.sparta.spartachallenge8282.global.exception.CustomException;
 import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.order.dto.response.OrderDetailResponseDto;
@@ -10,6 +11,8 @@ import com.sparta.spartachallenge8282.order.repository.OrderRepository;
 import com.sparta.spartachallenge8282.order.dto.request.OrderCreateRequestDto;
 import com.sparta.spartachallenge8282.order.dto.response.OrderCreateResponseDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,12 +128,16 @@ public class OrderService {
                 .toList();
     }
 
-    // 주문 목록 조회
+    // 주문 목록 조회 + 페이징
     @Transactional(readOnly = true)
-    public List<OrderListResponseDto> getOrders(Long userId) {
-        return orderRepository.findAllByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(OrderListResponseDto::from)
-                .toList();
+    public PageResponse<OrderListResponseDto> getOrders(
+            Long userId,
+            Pageable pageable
+    ) {
+        Page<OrderListResponseDto> orders = orderRepository
+                .findAllByUserIdAndDeletedAtIsNull(userId, pageable)
+                .map(OrderListResponseDto::from);
+
+        return PageResponse.from(orders);
     }
 }
