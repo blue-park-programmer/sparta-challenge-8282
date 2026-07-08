@@ -65,7 +65,7 @@ public class RegionController {
     public ResponseEntity<ApiResponse<RegionDeleteResponse>> deleteRegion(
             @PathVariable UUID regionId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        LocalDateTime deletedAt = regionService.deleteRegion(regionId, userDetails.getUserId());
+        LocalDateTime deletedAt = regionService.deleteRegion(regionId, userDetails.userId());
         return ResponseEntity.ok(
                 ApiResponse.success("지역 삭제 완료", new RegionDeleteResponse(regionId, deletedAt)));
     }
