@@ -50,9 +50,8 @@ public class OrderService {
         return OrderCreateResponseDto.from(savedOrder);
     }
 
-    /**
+    /*
      * 메뉴 총 금액 계산
-     *
      * 지금은 MenuRepository가 없으므로 임시값.
      * 나중에는 menuId로 메뉴를 조회해서 가격 * 수량으로 계산해야 한다.
      */
@@ -60,9 +59,8 @@ public class OrderService {
         return 0;
     }
 
-    /**
+    /*
      * 주문번호 생성
-     *
      * 예시 형식: A240703001
      * 현재는 동시성 고려 없이 날짜 기반 임시 번호로 만든다.
      * 실무에서는 별도 채번 정책이나 시퀀스가 필요하다.

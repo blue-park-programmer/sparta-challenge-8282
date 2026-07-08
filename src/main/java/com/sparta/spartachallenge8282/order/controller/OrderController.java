@@ -1,26 +1,40 @@
 package com.sparta.spartachallenge8282.order.controller;
 
+import com.sparta.spartachallenge8282.global.common.ApiResponse;
 import com.sparta.spartachallenge8282.order.dto.request.OrderCreateRequestDto;
+import com.sparta.spartachallenge8282.order.dto.response.OrderCreateResponseDto;
+import com.sparta.spartachallenge8282.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
+/**
+ * 주문 API Controller
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/orders")
 public class OrderController {
-    /*
-     * 주문 생성 API
-     * POST /api/v1/orders
-     */
+
+
+    // 추후 user 로그인 기능 구현 이후 아래처럼 코드 변경
+    // * - Long userId = userDetails.getUserId();
+    private static final Long TEMP_CUSTOMER_ID = 1L;
+
+    private final OrderService orderService;
+
     @PostMapping
-    public String createOrder(@Valid @RequestBody OrderCreateRequestDto request) {
+    public ResponseEntity<ApiResponse<OrderCreateResponseDto>> createOrder(
+            @Valid @RequestBody OrderCreateRequestDto request
+    ) {
+        OrderCreateResponseDto response = orderService.createOrder(
+                TEMP_CUSTOMER_ID,
+                request
+        );
 
-        // 1단계에서는 DB 저장하지 않고 요청이 정상적으로 들어오는지만 확인
-        return "주문 생성 요청 수신 완료";
+        return ResponseEntity.ok(
+                ApiResponse.success("주문 생성 성공", response)
+        );
     }
-
 }
