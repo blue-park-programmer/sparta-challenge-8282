@@ -39,6 +39,8 @@ public class Menu extends BaseEntity {
     @UuidGenerator
     private UUID id;
 
+    // order 접점: 주문 생성 시 "주문한 메뉴가 이 가게 소속인지" 검증에 사용된다 (order 도메인의 MENU_STORE_MISMATCH).
+    //            메뉴 쓰기 권한(OWNER 본인 가게)도 이 storeId 로 소유권을 확인한다 (NO_MENU_PERMISSION, auth 브랜치).
     @Column(name = "store_id", nullable = false)
     private UUID storeId;
 
@@ -48,6 +50,7 @@ public class Menu extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // order 접점: 주문 시점 가격을 OrderItem.menuPrice(스냅샷)로 복사한다 — 이후 가격이 바뀌어도 과거 주문 내역은 불변.
     @Column(nullable = false)
     private int price;
 
@@ -62,6 +65,7 @@ public class Menu extends BaseEntity {
     @Column(nullable = false)
     private MenuBadge badge;
 
+    // order 접점: 숨김(true) 메뉴는 주문할 수 없다 (order 도메인의 HIDDEN_MENU_NOT_ORDERABLE). 노출 토글일 뿐 삭제(deletedAt)와는 별개.
     @Column(nullable = false)
     private boolean isHidden;
 

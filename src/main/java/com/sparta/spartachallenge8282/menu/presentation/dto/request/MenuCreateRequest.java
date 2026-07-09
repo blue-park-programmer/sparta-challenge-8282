@@ -7,10 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
-
 public record MenuCreateRequest(
-        @NotNull UUID storeId,
         @NotBlank @Size(max = 100) String name,
         String description,
         @NotNull @PositiveOrZero Integer price,

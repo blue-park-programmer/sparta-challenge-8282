@@ -59,7 +59,7 @@ class MenuServiceTest {
         // given
         UUID storeId = UUID.randomUUID();
         MenuCreateRequest request = new MenuCreateRequest(
-                storeId, "후라이드", "바삭한 후라이드", 18000, 1,
+                "후라이드", "바삭한 후라이드", 18000, 1,
                 MenuStatus.ON_SALE, MenuBadge.NONE, false);
 
         UUID generatedId = UUID.randomUUID();
@@ -68,7 +68,7 @@ class MenuServiceTest {
         given(menuRepository.save(any(Menu.class))).willReturn(saved);
 
         // when
-        UUID result = menuService.createMenu(request);
+        UUID result = menuService.createMenu(storeId, request);
 
         // then
         assertThat(result).isEqualTo(generatedId);
@@ -79,12 +79,12 @@ class MenuServiceTest {
         // given
         UUID storeId = UUID.randomUUID();
         MenuCreateRequest request = new MenuCreateRequest(
-                storeId, "후라이드", "바삭한 후라이드", -1000, 1,
+                "후라이드", "바삭한 후라이드", -1000, 1,
                 null, null, false);
 
         // when
         CustomException exception = assertThrows(CustomException.class,
-                () -> menuService.createMenu(request));
+                () -> menuService.createMenu(storeId, request));
 
         // then
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_MENU_PRICE);

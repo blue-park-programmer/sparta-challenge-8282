@@ -18,6 +18,19 @@ import java.util.UUID;
  * 메뉴 비즈니스 로직.
  *
  * <p>조회는 클래스 기본 {@code @Transactional(readOnly = true)}, 쓰기 메서드만 {@code @Transactional} 로 오버라이드한다.
+ *
+ * <p><b>권한 정책 (노션 API 명세 확정):</b>
+ * <ul>
+ *   <li>생성·수정·삭제: {@code OWNER}(본인 가게) 또는 {@code MANAGER}.
+ *       OWNER 는 role 체크만으론 부족하고 {@code storeId} 로 가게 소유권을 확인해야 한다
+ *       ({@code NO_MENU_PERMISSION}) — store 연동(auth 브랜치)에서 구현.</li>
+ *   <li>단건·목록 조회: 인증 필요({@code CUSTOMER}/{@code OWNER}/{@code MANAGER}).
+ *       region·category 와 달리 GET 을 비로그인 공개하지 않는다.</li>
+ * </ul>
+ *
+ * <p><b>order 접점:</b> 주문 생성 시 order 도메인이 메뉴를 조회·검증한다
+ * (가게 일치 {@code MENU_STORE_MISMATCH}, 숨김 {@code HIDDEN_MENU_NOT_ORDERABLE}, 가격 스냅샷).
+ * order 가 이 서비스/리포지토리를 재사용할 수 있으므로 조회 시그니처 변경 시 order 영향 확인.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,12 +40,15 @@ public class MenuService {
     private final MenuRepository menuRepository;
 
     @Transactional
-    public UUID createMenu(MenuCreateRequest request) {
+    public UUID createMenu(UUID storeId, MenuCreateRequest request) {
+        // storeId 는 경로(PathVariable)로 받는다 — 메뉴의 소속 가게 식별자이므로 body 가 아니라 URL 계층에 둔다.
+        // TODO(권한, auth 브랜치): OWNER 는 storeId 가 본인 가게인지 확인 → 아니면 NO_MENU_PERMISSION.
+        //                        가게 존재 검증(STORE_NOT_FOUND)도 여기서. MANAGER 는 소유권과 무관하게 허용.
         validatePrice(request.price());
 
         Menu menu = Menu.builder()
                 .name(request.name())
-                .storeId(request.storeId())
+                .storeId(storeId)
                 .description(request.description())
                 .price(request.price())
                 .sortOrder(request.sortOrder())
@@ -45,6 +61,7 @@ public class MenuService {
     }
 
     public MenuResponse getMenu(UUID id) {
+        // order 접점: 주문 생성 시 order 도메인이 메뉴 유효성(존재·가게 일치·숨김 여부)을 확인할 때 이 조회를 재사용할 수 있다.
         Menu menu = menuRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.MENU_NOT_FOUND));
         return MenuResponse.from(menu);
@@ -55,6 +72,7 @@ public class MenuService {
         Menu menu = menuRepository.findByIdAndDeletedAtIsNull(id)   // 조회를 가장 먼저 — 없으면 NOT_FOUND
                 .orElseThrow(() -> new CustomException(ErrorCode.MENU_NOT_FOUND));
 
+        // TODO(권한, menu-auth 브랜치): OWNER 는 menu.getStoreId() 가 본인 가게인지 확인 → 아니면 NO_MENU_PERMISSION
         validatePrice(request.price());
 
         // 부분 수정: 엔티티 비즈니스 메서드가 null 필드를 각각 skip 한다 (setter 금지)
@@ -74,7 +92,7 @@ public class MenuService {
             throw new CustomException(ErrorCode.ALREADY_DELETED_MENU);
         }
 
-        // TODO: NO_MENU_PERMISSION(가게 소유자 확인) / STORE_NOT_FOUND — store·user 연동(auth 브랜치)에서 구현
+        // TODO(menu-auth 브랜치): NO_MENU_PERMISSION(가게 소유자 확인) / STORE_NOT_FOUND — store, user 연동
         menu.softDelete(userId);
         return menu.getDeletedAt();
     }
