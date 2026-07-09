@@ -1,4 +1,4 @@
-package com.sparta.spartachallenge8282.user.presentation.dto.response;
+package com.sparta.spartachallenge8282.user.dto.response;
 
 import com.sparta.spartachallenge8282.user.entity.User;
 import com.sparta.spartachallenge8282.user.entity.UserRole;
