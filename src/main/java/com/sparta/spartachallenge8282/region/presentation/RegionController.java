@@ -29,7 +29,7 @@ public class RegionController {
 
     private final RegionService regionService;
 
-    @PreAuthorize("hasAnyRole('MANAGER','MASTER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PostMapping
     public ResponseEntity<ApiResponse<RegionCreateResponse>> createRegion(
             @Valid @RequestBody RegionCreateRequest request) {
@@ -54,7 +54,7 @@ public class RegionController {
         return ResponseEntity.ok(ApiResponse.success("지역 목록 조회 성공", data));
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','MASTER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PatchMapping("/{regionId}")
     public ResponseEntity<ApiResponse<RegionResponse>> updateRegion(
             @PathVariable UUID regionId,
@@ -63,7 +63,7 @@ public class RegionController {
                 ApiResponse.success("지역 수정 완료", regionService.updateRegion(regionId, request)));
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','MASTER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @DeleteMapping("/{regionId}")
     public ResponseEntity<ApiResponse<RegionDeleteResponse>> deleteRegion(
             @PathVariable UUID regionId,
