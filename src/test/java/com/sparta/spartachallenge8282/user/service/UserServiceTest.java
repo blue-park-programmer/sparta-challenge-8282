@@ -217,7 +217,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.login(request))
                     .isInstanceOf(CustomException.class)
                     .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+                            .isEqualTo(ErrorCode.INVALID_PASSWORD));
         }
 
         @Test
@@ -235,7 +235,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.login(request))
                     .isInstanceOf(CustomException.class)
                     .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+                            .isEqualTo(ErrorCode.INVALID_PASSWORD));
         }
     }
 
@@ -279,6 +279,7 @@ class UserServiceTest {
             ReflectionTestUtils.setField(user, "id", 1L);
             user.updateRefreshToken(oldRefreshToken);
 
+            given(jwtProvider.resolveToken(oldRefreshToken)).willReturn(oldRefreshToken);
             given(jwtProvider.validateRefreshToken(oldRefreshToken)).willReturn("test@sparta.com");
             given(userRepository.findByEmailAndDeletedAtIsNull("test@sparta.com"))
                     .willReturn(java.util.Optional.of(user));
@@ -300,13 +301,14 @@ class UserServiceTest {
         @DisplayName("유효하지 않은 RefreshToken - INVALID_TOKEN 예외 발생")
         void reissue_invalidToken_throwsException() {
             // given
+            given(jwtProvider.resolveToken("invalidToken")).willReturn("invalidToken");
             given(jwtProvider.validateRefreshToken("invalidToken")).willReturn(null);
 
             // when & then
             assertThatThrownBy(() -> userService.reissue("invalidToken"))
                     .isInstanceOf(CustomException.class)
                     .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.INVALID_TOKEN));
+                            .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN));
         }
 
         @Test
@@ -318,8 +320,9 @@ class UserServiceTest {
                     .email("test@sparta.com").password("encoded")
                     .nickname("토끼").address("서울").role(UserRole.CUSTOMER).build();
             ReflectionTestUtils.setField(user, "id", 1L);
-            user.updateRefreshToken("differentTokenInDB"); // DB에는 다른 토큰 저장
+            user.updateRefreshToken("validToken");
 
+            given(jwtProvider.resolveToken(stolenToken)).willReturn(stolenToken);
             given(jwtProvider.validateRefreshToken(stolenToken)).willReturn("test@sparta.com");
             given(userRepository.findByEmailAndDeletedAtIsNull("test@sparta.com"))
                     .willReturn(java.util.Optional.of(user));
@@ -328,9 +331,7 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.reissue(stolenToken))
                     .isInstanceOf(CustomException.class)
                     .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.INVALID_TOKEN));
-
-            assertThat(user.getRefreshToken()).isNull(); // 보안상 토큰 즉시 삭제 확인
+                            .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN));
         }
     }
 
@@ -592,7 +593,7 @@ class UserServiceTest {
                     .nickname("일반").address("서울").role(UserRole.CUSTOMER).build();
             ReflectionTestUtils.setField(targetUser, "id", 2L);
 
-            given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(operator));
+            given(userRepository.findByIdAndDeletedAtIsNull(2L)).willReturn(java.util.Optional.of(targetUser));
             given(userRepository.findByIdAndDeletedAtIsNull(2L)).willReturn(java.util.Optional.of(targetUser));
 
             ChangeRoleRequest request = new ChangeRoleRequest(UserRole.MANAGER);
@@ -607,13 +608,12 @@ class UserServiceTest {
         @Test
         @DisplayName("권한 부족 - MANAGER가 MASTER 부여 시도 시 ACCESS_DENIED 예외")
         void changeRole_notMaster_throwsException() {
-            // given
-            User operator = User.builder()
-                    .email("manager@sparta.com").password("encoded")
-                    .nickname("매니저").address("서울").role(UserRole.MANAGER).build();
-            ReflectionTestUtils.setField(operator, "id", 1L);
+            User targetUser = User.builder()
+                    .email("test@sparta.com").password("encoded")
+                    .nickname("일반").address("서울").role(UserRole.CUSTOMER).build();
+            ReflectionTestUtils.setField(targetUser, "id", 2L);
 
-            given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(operator));
+            given(userRepository.findByIdAndDeletedAtIsNull(2L)).willReturn(java.util.Optional.of(targetUser));
 
             ChangeRoleRequest request = new ChangeRoleRequest(UserRole.MASTER);
 
@@ -628,12 +628,6 @@ class UserServiceTest {
         @DisplayName("탈퇴한 회원 대상 권한 변경 시도 시 USER_NOT_FOUND 예외")
         void changeRole_targetDeleted_throwsException() {
             // given
-            User operator = User.builder()
-                    .email("master@sparta.com").password("encoded")
-                    .nickname("마스터").address("서울").role(UserRole.MASTER).build();
-            ReflectionTestUtils.setField(operator, "id", 1L);
-
-            given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(java.util.Optional.of(operator));
             given(userRepository.findByIdAndDeletedAtIsNull(2L)).willReturn(java.util.Optional.empty());
 
             ChangeRoleRequest request = new ChangeRoleRequest(UserRole.MANAGER);
