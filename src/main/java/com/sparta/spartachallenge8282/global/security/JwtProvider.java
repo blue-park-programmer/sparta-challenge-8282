@@ -72,7 +72,7 @@ public class JwtProvider {
      */
     public String createAccessToken(Long userId, String email, String role) {
         Date now = new Date();
-        String token = Jwts.builder()
+        return Jwts.builder()
                 .subject(email)
                 .claim(CLAIM_USER_ID, userId)
                 .claim(CLAIM_ROLE, role)
@@ -80,7 +80,6 @@ public class JwtProvider {
                 .expiration(new Date(now.getTime() + accessExpirationMs))
                 .signWith(secretKey)
                 .compact();
-        return BEARER_PREFIX + token;
     }
 
     /**
