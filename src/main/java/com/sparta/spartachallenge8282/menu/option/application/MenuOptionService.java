@@ -9,11 +9,12 @@ import com.sparta.spartachallenge8282.menu.option.presentation.dto.request.MenuO
 import com.sparta.spartachallenge8282.menu.option.presentation.dto.response.MenuOptionResponse;
 import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroupRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -54,9 +55,12 @@ public class MenuOptionService {
         return MenuOptionResponse.from(findActiveOption(id));
     }
 
-    public List<MenuOptionResponse> getOptionList(UUID optionGroupId) {
-        return optionRepository.findAllByOptionGroupIdAndDeletedAtIsNullOrderBySortOrderAsc(optionGroupId)
-                .stream().map(MenuOptionResponse::from).toList();
+    public Page<MenuOptionResponse> getOptionList(UUID optionGroupId, String keyword, Boolean isActive, Pageable pageable) {
+        String searchKeyword = (keyword == null) ? "" : keyword;
+        Boolean activeFilter = (isActive == null) ? true : isActive;
+
+        return optionRepository.searchOptions(optionGroupId, searchKeyword, activeFilter, pageable)
+                .map(MenuOptionResponse::from);
     }
 
     @Transactional

@@ -1,6 +1,7 @@
 package com.sparta.spartachallenge8282.menu.option.presentation;
 
 import com.sparta.spartachallenge8282.global.common.ApiResponse;
+import com.sparta.spartachallenge8282.global.common.PageResponse;
 import com.sparta.spartachallenge8282.global.security.UserDetailsImpl;
 import com.sparta.spartachallenge8282.menu.option.application.MenuOptionService;
 import com.sparta.spartachallenge8282.menu.option.presentation.dto.request.MenuOptionCreateRequest;
@@ -10,6 +11,9 @@ import com.sparta.spartachallenge8282.menu.option.presentation.dto.response.Menu
 import com.sparta.spartachallenge8282.menu.option.presentation.dto.response.MenuOptionResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,10 +24,10 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -49,10 +53,15 @@ public class MenuOptionController {
     }
 
     @GetMapping("/api/v1/option-groups/{optionGroupId}/options")
-    public ResponseEntity<ApiResponse<List<MenuOptionResponse>>> getOptionList(
-            @PathVariable UUID optionGroupId) {
+    public ResponseEntity<ApiResponse<PageResponse<MenuOptionResponse>>> getOptionList(
+            @PathVariable UUID optionGroupId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean isActive,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        PageResponse<MenuOptionResponse> data =
+                PageResponse.from(optionService.getOptionList(optionGroupId, keyword, isActive, pageable));
         return ResponseEntity.ok(
-                ApiResponse.success("옵션 목록 조회 성공", optionService.getOptionList(optionGroupId)));
+                ApiResponse.success("옵션 목록 조회 성공", data));
     }
 
     @GetMapping("/api/v1/options/{optionId}")
