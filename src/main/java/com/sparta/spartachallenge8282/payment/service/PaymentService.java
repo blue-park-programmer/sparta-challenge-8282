@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -37,7 +38,9 @@ import java.util.UUID;
  *   <li>OWNER "본인 가게" 검증: Store 도메인이 없어 롤 레벨(@PreAuthorize)까지만 검증하고
  *       가게 소유 여부는 TODO 로 남긴다.</li>
  *   <li>PG 연동 부재: transactionId 는 임시 채번한다.</li>
- *   <li>Idempotency-Key: 저장 컬럼이 없어, 주문당 1건 유니크 제약(중복 결제 60005)으로 대체한다.</li>
+ *   <li>Idempotency-Key: {@code p_payment.idempotency_key} 에 저장하며, 동일 키 재요청은
+ *       결제를 새로 만들지 않고 최초 결과를 그대로 반환한다(멱등). 순차 재시도는 사전 조회로,
+ *       완전 동시 요청의 패자는 유니크 제약(60005)으로 방어한다.</li>
  * </ul>
  */
 @Service
@@ -65,6 +68,17 @@ public class PaymentService {
      */
     @Transactional
     public PaymentCreateResponse createPayment(PaymentCreateRequest request, Long userId, String idempotencyKey) {
+        String key = normalizeKey(idempotencyKey);
+
+        // 0) 멱등 재요청 — 동일 키의 결제가 이미 있으면 새로 생성하지 않고 최초 결과를 그대로 반환.
+        //    클라이언트가 응답 유실로 재시도(같은 키 재전송)해도 결제는 딱 1건만 발생한다.
+        if (key != null) {
+            Optional<Payment> replayed = paymentRepository.findByIdempotencyKey(key);
+            if (replayed.isPresent()) {
+                return PaymentCreateResponse.from(replayed.get());
+            }
+        }
+
         // 1) 주문 조회 (60004)
         Order order = orderRepository.findByIdAndDeletedAtIsNull(request.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
@@ -86,12 +100,14 @@ public class PaymentService {
                 .method(request.method())
                 .status(PaymentStatus.PAID)
                 .transactionId(generateTransactionId())
+                .idempotencyKey(key)
                 .paidAt(LocalDateTime.now())
                 .build();
 
-        // 사전 체크를 통과한 동시 요청은 order_id 유니크 제약에서 충돌한다.
+        // 사전 체크를 통과한 동시 요청은 order_id(또는 idempotency_key) 유니크 제약에서 충돌한다.
         // saveAndFlush 로 즉시 INSERT 를 발생시켜 이 트랜잭션 안에서 제약 위반을 잡고
         // 500 대신 60005(중복 결제)로 변환한다.
+        // (동일 키의 완전 동시 요청 시 패자는 60005 를 받는다. 순차 재시도는 위 0) 단계에서 멱등 반환된다.)
         try {
             return PaymentCreateResponse.from(paymentRepository.saveAndFlush(payment));
         } catch (DataIntegrityViolationException e) {
@@ -237,5 +253,10 @@ public class PaymentService {
     /** PG 연동 부재 상태의 임시 거래 ID 채번. */
     private String generateTransactionId() {
         return "TXN-" + UUID.randomUUID();
+    }
+
+    /** 멱등 키 정규화 — 공백/빈 문자열은 키 미전송(null)으로 취급. */
+    private String normalizeKey(String idempotencyKey) {
+        return (idempotencyKey == null || idempotencyKey.isBlank()) ? null : idempotencyKey;
     }
 }
