@@ -53,7 +53,7 @@ class ReviewServiceTest {
                 .thenReturn(savedReview);
 
         // when
-        ReviewResultResponseDto result = reviewService.createReview(requestDto, userId, storeId);
+        ReviewResultResponseDto result = reviewService.createReview(requestDto, userId);
 
         System.out.println("결과: " + result);
 
