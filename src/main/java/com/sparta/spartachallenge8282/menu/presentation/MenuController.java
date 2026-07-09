@@ -1,8 +1,11 @@
 package com.sparta.spartachallenge8282.menu.presentation;
 
 import com.sparta.spartachallenge8282.global.common.ApiResponse;
+import com.sparta.spartachallenge8282.global.common.PageResponse;
 import com.sparta.spartachallenge8282.global.security.UserDetailsImpl;
 import com.sparta.spartachallenge8282.menu.application.MenuService;
+import com.sparta.spartachallenge8282.menu.domain.MenuBadge;
+import com.sparta.spartachallenge8282.menu.domain.MenuStatus;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuCreateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuUpdateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuCreateResponse;
@@ -10,6 +13,8 @@ import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuDeleteR
 import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +25,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -30,7 +36,7 @@ import java.util.UUID;
  *
  * <p>경로가 두 갈래라 클래스 {@code @RequestMapping} 을 두지 않고 메서드마다 전체 경로를 명시한다.
  * <ul>
- *   <li>생성/목록: {@code /api/v1/stores/{storeId}/menus} — 메뉴는 가게에 종속되므로 가게 하위 경로 (목록은 search 브랜치)</li>
+ *   <li>생성/목록: {@code /api/v1/stores/{storeId}/menus} — 메뉴는 가게에 종속되므로 가게 하위 경로. 목록은 숨김 제외 + 페이징.</li>
  *   <li>단건/수정/삭제: {@code /api/v1/menus/{menuId}}</li>
  * </ul>
  *
@@ -58,6 +64,18 @@ public class MenuController {
     public ResponseEntity<ApiResponse<MenuResponse>> getMenu(@PathVariable UUID menuId) {
         return ResponseEntity.ok(
                 ApiResponse.success("메뉴 조회 성공", menuService.getMenu(menuId)));
+    }
+
+    @GetMapping("/api/v1/stores/{storeId}/menus")
+    public ResponseEntity<ApiResponse<PageResponse<MenuResponse>>> getMenuList(
+            @PathVariable UUID storeId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) MenuStatus status,
+            @RequestParam(required = false) MenuBadge badge,
+            @PageableDefault(size = 10, sort = "sortOrder") Pageable pageable) {
+        PageResponse<MenuResponse> data =
+                PageResponse.from(menuService.getMenuList(storeId, keyword, status, badge, pageable));
+        return ResponseEntity.ok(ApiResponse.success("메뉴 목록 조회 성공", data));
     }
 
     @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ROLE_MANAGER','ROLE_MASTER')")

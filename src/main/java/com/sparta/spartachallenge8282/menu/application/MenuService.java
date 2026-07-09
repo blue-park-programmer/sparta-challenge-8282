@@ -3,11 +3,15 @@ package com.sparta.spartachallenge8282.menu.application;
 import com.sparta.spartachallenge8282.global.exception.CustomException;
 import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.menu.domain.Menu;
+import com.sparta.spartachallenge8282.menu.domain.MenuBadge;
 import com.sparta.spartachallenge8282.menu.domain.MenuRepository;
+import com.sparta.spartachallenge8282.menu.domain.MenuStatus;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuCreateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuUpdateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,8 +28,7 @@ import java.util.UUID;
  *   <li>생성·수정·삭제: {@code OWNER}(본인 가게) 또는 {@code MANAGER}.
  *       OWNER 는 role 체크만으론 부족하고 {@code storeId} 로 가게 소유권을 확인해야 한다
  *       ({@code NO_MENU_PERMISSION}) — store 연동(auth 브랜치)에서 구현.</li>
- *   <li>단건·목록 조회: 인증 필요({@code CUSTOMER}/{@code OWNER}/{@code MANAGER}).
- *       region·category 와 달리 GET 을 비로그인 공개하지 않는다.</li>
+ *   <li>단건·목록 조회: 비로그인 공개(region·category 와 동일). 공개 목록은 숨김(isHidden) 메뉴를 제외한다.</li>
  * </ul>
  *
  * <p><b>order 접점:</b> 주문 생성 시 order 도메인이 메뉴를 조회·검증한다
@@ -65,6 +68,15 @@ public class MenuService {
         Menu menu = menuRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.MENU_NOT_FOUND));
         return MenuResponse.from(menu);
+    }
+
+    public Page<MenuResponse> getMenuList(UUID storeId, String keyword,
+                                          MenuStatus status, MenuBadge badge, Pageable pageable) {
+        String searchKeyword = (keyword == null) ? "" : keyword;   // null 이면 전체 검색(LIKE '%%')
+        // 공개 조회는 숨김 메뉴 제외(includeHidden=false).
+        // TODO(관리자 확장): 숨김 포함 조회는 admin 엔드포인트에서 includeHidden=true 로 재사용한다.
+        return menuRepository.searchMenus(storeId, searchKeyword, status, badge, false, pageable)
+                .map(MenuResponse::from);
     }
 
     @Transactional

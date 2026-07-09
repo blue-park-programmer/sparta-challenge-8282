@@ -14,9 +14,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -240,5 +245,45 @@ class MenuServiceTest {
 
         // then
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.ALREADY_DELETED_MENU);
+    }
+
+    // ── 목록 조회 ──────────────────────────────────────────────────────────────
+
+    @Test
+    void 목록조회_성공하면_페이징된_MenuResponse를_반환한다() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Pageable pageable = PageRequest.of(0, 10);
+        UUID id = UUID.randomUUID();
+        Menu menu = sampleMenu(storeId);
+        ReflectionTestUtils.setField(menu, "id", id);
+        Page<Menu> page = new PageImpl<>(List.of(menu), pageable, 1);
+
+        given(menuRepository.searchMenus(storeId, "후라이드", null, null, false, pageable)).willReturn(page);
+
+        // when
+        Page<MenuResponse> result = menuService.getMenuList(storeId, "후라이드", null, null, pageable);
+
+        // then
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).menuId()).isEqualTo(id);
+        assertThat(result.getContent().get(0).name()).isEqualTo("후라이드");
+    }
+
+    @Test
+    void 목록조회_keyword가_null이면_빈문자열로_검색한다() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Menu> page = new PageImpl<>(List.of(), pageable, 0);
+
+        given(menuRepository.searchMenus(storeId, "", null, null, false, pageable)).willReturn(page);
+
+        // when
+        menuService.getMenuList(storeId, null, null, null, pageable);
+
+        // then — 공개 목록은 숨김 제외(includeHidden=false), keyword 는 null→"" 로 전달
+        verify(menuRepository).searchMenus(storeId, "", null, null, false, pageable);
     }
 }
