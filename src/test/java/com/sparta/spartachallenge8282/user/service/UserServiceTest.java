@@ -192,7 +192,7 @@ class UserServiceTest {
             given(passwordEncoder.matches(request.password(), user.getPassword()))
                     .willReturn(true);
             given(jwtProvider.createAccessToken(user.getId(), user.getEmail(), "ROLE_CUSTOMER"))
-                    .willReturn("Bearer accessToken");
+                    .willReturn("accessToken");
             given(jwtProvider.createRefreshToken(user.getEmail()))
                     .willReturn("refreshToken");
 
@@ -200,7 +200,7 @@ class UserServiceTest {
             LoginResponse result = userService.login(request);
 
             // then
-            assertThat(result.accessToken()).isEqualTo("Bearer accessToken");
+            assertThat(result.accessToken()).isEqualTo("accessToken");
             assertThat(result.refreshToken()).isEqualTo("refreshToken");
             verify(userRepository).findByEmailAndDeletedAtIsNull(request.email());
         }
@@ -284,7 +284,7 @@ class UserServiceTest {
             given(userRepository.findByEmailAndDeletedAtIsNull("test@sparta.com"))
                     .willReturn(java.util.Optional.of(user));
             given(jwtProvider.createAccessToken(1L, "test@sparta.com", "ROLE_CUSTOMER"))
-                    .willReturn("Bearer newAccessToken");
+                    .willReturn("newAccessToken");
             given(jwtProvider.createRefreshToken("test@sparta.com"))
                     .willReturn("newRefreshToken");
 
@@ -292,7 +292,7 @@ class UserServiceTest {
             LoginResponse result = userService.reissue(oldRefreshToken);
 
             // then
-            assertThat(result.accessToken()).isEqualTo("Bearer newAccessToken");
+            assertThat(result.accessToken()).isEqualTo("newAccessToken");
             assertThat(result.refreshToken()).isEqualTo("newRefreshToken");
             assertThat(user.getRefreshToken()).isEqualTo("newRefreshToken"); // DB 갱신 확인
         }
