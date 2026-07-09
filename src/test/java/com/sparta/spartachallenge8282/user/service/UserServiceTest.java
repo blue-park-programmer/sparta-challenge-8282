@@ -8,6 +8,7 @@ import com.sparta.spartachallenge8282.user.entity.UserRole;
 import com.sparta.spartachallenge8282.user.repository.UserRepository;
 import com.sparta.spartachallenge8282.user.presentation.dto.request.LoginRequest;
 import com.sparta.spartachallenge8282.user.presentation.dto.request.SignUpRequest;
+import com.sparta.spartachallenge8282.user.presentation.dto.request.UpdateUserRequest;
 import com.sparta.spartachallenge8282.user.presentation.dto.response.LoginResponse;
 import com.sparta.spartachallenge8282.user.presentation.dto.response.UserResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -328,6 +329,119 @@ class UserServiceTest {
                             .isEqualTo(ErrorCode.INVALID_TOKEN));
 
             assertThat(user.getRefreshToken()).isNull(); // 보안상 토큰 즉시 삭제 확인
+        }
+    }
+
+    // ── 회원 정보 조회 / 수정 ───────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("회원정보 조회 (getMyInfo)")
+    class GetMyInfoTest {
+
+        @Test
+        @DisplayName("정상 조회 성공")
+        void getMyInfo_success() {
+            // given
+            User user = User.builder()
+                    .email("test@sparta.com").password("encoded")
+                    .nickname("코딩하는토끼").address("서울시 강남구").role(UserRole.CUSTOMER).build();
+            ReflectionTestUtils.setField(user, "id", 1L);
+
+            given(userRepository.findByIdAndDeletedAtIsNull(1L))
+                    .willReturn(java.util.Optional.of(user));
+
+            // when
+            UserResponse result = userService.getMyInfo(1L);
+
+            // then
+            assertThat(result.id()).isEqualTo(1L);
+            assertThat(result.email()).isEqualTo("test@sparta.com");
+            assertThat(result.nickname()).isEqualTo("코딩하는토끼");
+        }
+
+        @Test
+        @DisplayName("탈퇴한 회원 조회 - USER_NOT_FOUND 예외 발생")
+        void getMyInfo_deletedUser_throwsException() {
+            // given
+            given(userRepository.findByIdAndDeletedAtIsNull(99L))
+                    .willReturn(java.util.Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> userService.getMyInfo(99L))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_FOUND));
+        }
+    }
+
+    @Nested
+    @DisplayName("회원정보 수정 (updateMyInfo)")
+    class UpdateMyInfoTest {
+
+        @Test
+        @DisplayName("니키네임 + 주소 수정 성공")
+        void updateMyInfo_success() {
+            // given
+            User user = User.builder()
+                    .email("test@sparta.com").password("encoded")
+                    .nickname("오래된닉네임").address("오래된주소").role(UserRole.CUSTOMER).build();
+            ReflectionTestUtils.setField(user, "id", 1L);
+
+            given(userRepository.findByIdAndDeletedAtIsNull(1L))
+                    .willReturn(java.util.Optional.of(user));
+
+            UpdateUserRequest request = new UpdateUserRequest("새닉네임", "새주소");
+
+            // when
+            UserResponse result = userService.updateMyInfo(1L, request);
+
+            // then
+            assertThat(result.nickname()).isEqualTo("새닉네임");
+            assertThat(result.address()).isEqualTo("새주소");
+        }
+
+        @Test
+        @DisplayName("null 요청 시 기존 값 유지")
+        void updateMyInfo_nullRequest_keepsOriginal() {
+            // given
+            User user = User.builder()
+                    .email("test@sparta.com").password("encoded")
+                    .nickname("원래닉네임").address("원래주소").role(UserRole.CUSTOMER).build();
+            ReflectionTestUtils.setField(user, "id", 1L);
+
+            given(userRepository.findByIdAndDeletedAtIsNull(1L))
+                    .willReturn(java.util.Optional.of(user));
+
+            UpdateUserRequest request = new UpdateUserRequest(null, null); // null 요청
+
+            // when
+            UserResponse result = userService.updateMyInfo(1L, request);
+
+            // then
+            assertThat(result.nickname()).isEqualTo("원래닉네임"); // 기존 값 유지
+            assertThat(result.address()).isEqualTo("원래주소");   // 기존 값 유지
+        }
+
+        @Test
+        @DisplayName("이메일·role은 수정 불가 (응답에 변경 없음)&quot;")
+        void updateMyInfo_emailAndRoleNotChanged() {
+            // given
+            User user = User.builder()
+                    .email("test@sparta.com").password("encoded")
+                    .nickname("토끼").address("서울").role(UserRole.CUSTOMER).build();
+            ReflectionTestUtils.setField(user, "id", 1L);
+
+            given(userRepository.findByIdAndDeletedAtIsNull(1L))
+                    .willReturn(java.util.Optional.of(user));
+
+            UpdateUserRequest request = new UpdateUserRequest("새닉네임", "새주소");
+
+            // when
+            UserResponse result = userService.updateMyInfo(1L, request);
+
+            // then
+            assertThat(result.email()).isEqualTo("test@sparta.com"); // 이메일 불변
+            assertThat(result.role()).isEqualTo(UserRole.CUSTOMER);   // role 불변
         }
     }
 }

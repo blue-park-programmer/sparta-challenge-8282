@@ -8,6 +8,7 @@ import com.sparta.spartachallenge8282.user.entity.UserRole;
 import com.sparta.spartachallenge8282.user.repository.UserRepository;
 import com.sparta.spartachallenge8282.user.presentation.dto.request.LoginRequest;
 import com.sparta.spartachallenge8282.user.presentation.dto.request.SignUpRequest;
+import com.sparta.spartachallenge8282.user.presentation.dto.request.UpdateUserRequest;
 import com.sparta.spartachallenge8282.user.presentation.dto.response.LoginResponse;
 import com.sparta.spartachallenge8282.user.presentation.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
@@ -120,5 +121,32 @@ public class UserService {
         user.updateRefreshToken(newRefreshToken);
         log.info("[Reissue] 토큰 재발급 완료. id={}", user.getId());
         return new LoginResponse(newAccessToken, newRefreshToken);
+    }
+
+    // ── 3. 회원 정보 조회 / 수정 ──────────────────────────────────────────────────
+
+    /**
+     * 내 정보 조회.
+     * 탈퇴한 회원은 조회 불가 (deletedAt IS NULL).
+     */
+    public UserResponse getMyInfo(Long userId) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        log.info("[GetMyInfo] 회원정보 조회. id={}", userId);
+        return UserResponse.from(user);
+    }
+
+    /**
+     * 회원 정보 수정 (닉네임, 주소).
+     * null 또는 빈 문자열이면 기존 값 유지. JPA Dirty Checking으로 저장.
+     * 이메일·권한(Role)은 수정 불가.
+     */
+    @Transactional
+    public UserResponse updateMyInfo(Long userId, UpdateUserRequest request) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        user.updateProfile(request.nickname(), request.address());
+        log.info("[UpdateMyInfo] 회원정보 수정 완료. id={}", userId);
+        return UserResponse.from(user);
     }
 }
