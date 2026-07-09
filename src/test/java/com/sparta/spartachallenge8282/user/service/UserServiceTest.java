@@ -526,4 +526,48 @@ class UserServiceTest {
                             .isEqualTo(ErrorCode.SAME_AS_OLD_PASSWORD));
         }
     }
+
+    // ── 5. 회원 탈퇴 ────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("회원 탈퇴 (withdraw)")
+    class WithdrawTest {
+
+        @Test
+        @DisplayName("정상 회원 탈퇴 - Soft Delete 적용 및 RefreshToken 삭제")
+        void withdraw_success() {
+            // given
+            User user = User.builder()
+                    .email("test@sparta.com").password("encoded")
+                    .nickname("토끼").address("서울").role(UserRole.CUSTOMER).build();
+            ReflectionTestUtils.setField(user, "id", 1L);
+            user.updateRefreshToken("someRefreshToken");
+
+            given(userRepository.findByIdAndDeletedAtIsNull(1L))
+                    .willReturn(java.util.Optional.of(user));
+
+            // when
+            userService.withdraw(1L);
+
+            // then
+            assertThat(user.isDeleted()).isTrue();
+            assertThat(user.getDeletedAt()).isNotNull();
+            assertThat(user.getDeletedBy()).isEqualTo(1L);
+            assertThat(user.getRefreshToken()).isNull(); // RefreshToken 삭제 확인
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 회원 - USER_NOT_FOUND 예외 발생")
+        void withdraw_alreadyDeleted_throwsException() {
+            // given
+            given(userRepository.findByIdAndDeletedAtIsNull(1L))
+                    .willReturn(java.util.Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> userService.withdraw(1L))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.USER_NOT_FOUND));
+        }
+    }
 }

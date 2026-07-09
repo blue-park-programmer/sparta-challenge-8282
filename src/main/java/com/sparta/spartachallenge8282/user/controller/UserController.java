@@ -44,4 +44,12 @@ public class UserController {
         userService.changePassword(userDetails.userId(), request);
         return ResponseEntity.ok(ApiResponse.success("비밀번호 변경 완료"));
     }
+
+    /** 회원 탈퇴 */
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        userService.withdraw(userDetails.userId());
+        return ResponseEntity.ok(ApiResponse.success("회원 탈퇴 완료"));
+    }
 }

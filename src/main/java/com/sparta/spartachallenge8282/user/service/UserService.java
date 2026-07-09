@@ -175,4 +175,22 @@ public class UserService {
         user.updatePassword(encodedNewPassword);
         log.info("[ChangePassword] 비밀번호 변경 완료. id={}", userId);
     }
+
+    // ── 5. 회원 탈퇴 ────────────────────────────────────────────────────────────
+
+    /**
+     * 회원 탈퇴.
+     * 물리 삭제(Hard Delete)하지 않고 Soft Delete를 적용한다.
+     * 탈퇴 시 Refresh Token을 함께 제거하여 기존 인증을 무효화한다.
+     */
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.softDelete(userId);
+        user.clearRefreshToken();
+        
+        log.info("[Withdraw] 회원 탈퇴 완료. id={}", userId);
+    }
 }
