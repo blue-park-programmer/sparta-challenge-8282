@@ -29,7 +29,7 @@ public class CategoryController {
 
     private final CategoryService categoryService;
 
-    @PreAuthorize("hasAnyRole('MANAGER','MASTER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PostMapping
     public ResponseEntity<ApiResponse<CategoryCreateResponse>> createCategory(
             @Valid @RequestBody CategoryCreateRequest request) {
@@ -53,7 +53,7 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success("카테고리 목록 조회 성공", data));
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','MASTER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PatchMapping("/{categoryId}")
     public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
             @PathVariable UUID categoryId,
@@ -62,7 +62,7 @@ public class CategoryController {
                 ApiResponse.success("카테고리 수정 완료", categoryService.updateCategory(categoryId, request)));
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER','MASTER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @DeleteMapping("/{categoryId}")
     public ResponseEntity<ApiResponse<CategoryDeleteResponse>> deleteCategory(
             @PathVariable UUID categoryId,
