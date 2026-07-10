@@ -15,13 +15,16 @@ import com.sparta.spartachallenge8282.payment.dto.response.PaymentResponse;
 import com.sparta.spartachallenge8282.payment.entity.Payment;
 import com.sparta.spartachallenge8282.payment.entity.PaymentStatus;
 import com.sparta.spartachallenge8282.payment.repository.PaymentRepository;
+import com.sparta.spartachallenge8282.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -34,9 +37,10 @@ import java.util.UUID;
  * <ul>
  *   <li>OWNER "본인 가게" 검증: Store 도메인이 없어 롤 레벨(@PreAuthorize)까지만 검증하고
  *       가게 소유 여부는 TODO 로 남긴다.</li>
- *   <li>유저 존재 검증(60009): User 도메인이 없어 생략한다(빈 페이지 반환).</li>
  *   <li>PG 연동 부재: transactionId 는 임시 채번한다.</li>
- *   <li>Idempotency-Key: 저장 컬럼이 없어, 주문당 1건 유니크 제약(중복 결제 60005)으로 대체한다.</li>
+ *   <li>Idempotency-Key: {@code p_payment.idempotency_key} 에 저장하며, 동일 키 재요청은
+ *       결제를 새로 만들지 않고 최초 결과를 그대로 반환한다(멱등). 순차 재시도는 사전 조회로,
+ *       완전 동시 요청의 패자는 유니크 제약(60005)으로 방어한다.</li>
  * </ul>
  */
 @Service
@@ -46,6 +50,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
     // 롤 문자열 (UserDetailsImpl.getRole() 원문 — ROLE_ 접두사 없음 가정)
     //TODO User Enum 있으면 교체해줘야함
@@ -63,6 +68,17 @@ public class PaymentService {
      */
     @Transactional
     public PaymentCreateResponse createPayment(PaymentCreateRequest request, Long userId, String idempotencyKey) {
+        String key = normalizeKey(idempotencyKey);
+
+        // 0) 멱등 재요청 — 동일 키의 결제가 이미 있으면 새로 생성하지 않고 최초 결과를 그대로 반환.
+        //    클라이언트가 응답 유실로 재시도(같은 키 재전송)해도 결제는 딱 1건만 발생한다.
+        if (key != null) {
+            Optional<Payment> replayed = paymentRepository.findByIdempotencyKey(key);
+            if (replayed.isPresent()) {
+                return PaymentCreateResponse.from(replayed.get());
+            }
+        }
+
         // 1) 주문 조회 (60004)
         Order order = orderRepository.findByIdAndDeletedAtIsNull(request.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
@@ -72,7 +88,7 @@ public class PaymentService {
             throw new CustomException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
-        // 3) 중복 결제 방지 (60005) — 주문당 결제 1건
+        // 3) 중복 결제 방지 (60005) — 주문당 결제 1건 (사전 체크: 빠른 실패 경로)
         if (paymentRepository.existsByOrder_Id(order.getId())) {
             throw new CustomException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
@@ -84,10 +100,19 @@ public class PaymentService {
                 .method(request.method())
                 .status(PaymentStatus.PAID)
                 .transactionId(generateTransactionId())
+                .idempotencyKey(key)
                 .paidAt(LocalDateTime.now())
                 .build();
 
-        return PaymentCreateResponse.from(paymentRepository.save(payment));
+        // 사전 체크를 통과한 동시 요청은 order_id(또는 idempotency_key) 유니크 제약에서 충돌한다.
+        // saveAndFlush 로 즉시 INSERT 를 발생시켜 이 트랜잭션 안에서 제약 위반을 잡고
+        // 500 대신 60005(중복 결제)로 변환한다.
+        // (동일 키의 완전 동시 요청 시 패자는 60005 를 받는다. 순차 재시도는 위 0) 단계에서 멱등 반환된다.)
+        try {
+            return PaymentCreateResponse.from(paymentRepository.saveAndFlush(payment));
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.PAYMENT_ALREADY_PROCESSED);
+        }
     }
 
     /** 주문의 결제 내역 조회. */
@@ -146,9 +171,45 @@ public class PaymentService {
         return PaymentRefundResponse.from(payment);
     }
 
+    // ── 주문(Order) 연동용 내부 API ──────────────────────────────────────────────
+    // 주문 상태 변화에 따라 Order 도메인에서 호출한다. REST 진입점이 아니므로 롤 기반
+    // 권한 검증을 두지 않는다(호출 주체 검증은 Order 서비스 책임). 상태 전이 규칙(PAID 가드)만 강제한다.
+    // 취소 주체 기준: 가게(사장) 사유 → cancel(CANCELED), 고객 요청 → refund(REFUNDED).
+
+    /**
+     * 주문 취소에 따른 결제 취소(가게 사유). 미수락/거절/수락 후 사장 취소 시 Order 에서 호출.
+     * 결제가 없으면 조용히 무시한다(멱등: 결제 미생성 주문의 취소는 정상 흐름).
+     */
+    @Transactional
+    public void cancelByOrder(UUID orderId, String reason) {
+        paymentRepository.findByOrder_IdAndDeletedAtIsNull(orderId).ifPresent(payment -> {
+            if (payment.getStatus() != PaymentStatus.PAID) {
+                throw new CustomException(ErrorCode.PAYMENT_NOT_CANCELABLE); // 60007
+            }
+            payment.cancel(reason);
+        });
+    }
+
+    /**
+     * 주문 취소에 따른 결제 환불(고객 요청). 고객이 5분 내 취소 시 Order 에서 호출.
+     * 결제가 없으면 조용히 무시한다(멱등).
+     */
+    @Transactional
+    public void refundByOrder(UUID orderId, String reason) {
+        paymentRepository.findByOrder_IdAndDeletedAtIsNull(orderId).ifPresent(payment -> {
+            if (payment.getStatus() != PaymentStatus.PAID) {
+                throw new CustomException(ErrorCode.PAYMENT_NOT_REFUNDABLE); // 60008
+            }
+            payment.refund(reason);
+        });
+    }
+
     /** 특정 유저 결제 내역 조회(관리자). */
     public Page<PaymentResponse> getUserPayments(Long userId, Pageable pageable) {
-        // TODO: User 도메인 확정 후 유저 존재 검증 (60009)
+        // 유저 존재 검증 (60009) — 없는 유저면 빈 페이지가 아니라 명시적 404
+        if (!userRepository.existsByIdAndDeletedAtIsNull(userId)) {
+            throw new CustomException(ErrorCode.PAYMENT_USER_NOT_FOUND);
+        }
         return paymentRepository.findByOrder_UserIdAndDeletedAtIsNull(userId, pageable)
                 .map(PaymentResponse::from);
     }
@@ -225,5 +286,10 @@ public class PaymentService {
     /** PG 연동 부재 상태의 임시 거래 ID 채번. */
     private String generateTransactionId() {
         return "TXN-" + UUID.randomUUID();
+    }
+
+    /** 멱등 키 정규화 — 공백/빈 문자열은 키 미전송(null)으로 취급. */
+    private String normalizeKey(String idempotencyKey) {
+        return (idempotencyKey == null || idempotencyKey.isBlank()) ? null : idempotencyKey;
     }
 }

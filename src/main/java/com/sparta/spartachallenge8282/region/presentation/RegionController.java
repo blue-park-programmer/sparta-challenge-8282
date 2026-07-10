@@ -15,13 +15,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// TODO: 생성/수정/삭제는 MANAGER 전용 — 인가(@PreAuthorize) 미구현, User 연동 시 추가
 @RestController
 @RequestMapping("/api/v1/regions")
 @RequiredArgsConstructor
@@ -29,6 +29,7 @@ public class RegionController {
 
     private final RegionService regionService;
 
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PostMapping
     public ResponseEntity<ApiResponse<RegionCreateResponse>> createRegion(
             @Valid @RequestBody RegionCreateRequest request) {
@@ -37,6 +38,7 @@ public class RegionController {
                 .body(ApiResponse.success("지역 생성 완료", new RegionCreateResponse(regionId)));
     }
 
+    // 조회(GET)는 비로그인 공개 — 활성 항목만 노출(SecurityConfig 화이트리스트).
     @GetMapping("/{regionId}")
     public ResponseEntity<ApiResponse<RegionResponse>> getRegion(@PathVariable UUID regionId) {
         return ResponseEntity.ok(
@@ -46,13 +48,13 @@ public class RegionController {
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<RegionResponse>>> getRegionList(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Boolean isActive,
             @PageableDefault(size = 10, sort = "sortOrder") Pageable pageable) {
         PageResponse<RegionResponse> data =
-                PageResponse.from(regionService.getRegionList(keyword, isActive, pageable));
+                PageResponse.from(regionService.getRegionList(keyword, pageable));
         return ResponseEntity.ok(ApiResponse.success("지역 목록 조회 성공", data));
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PatchMapping("/{regionId}")
     public ResponseEntity<ApiResponse<RegionResponse>> updateRegion(
             @PathVariable UUID regionId,
@@ -61,6 +63,7 @@ public class RegionController {
                 ApiResponse.success("지역 수정 완료", regionService.updateRegion(regionId, request)));
     }
 
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @DeleteMapping("/{regionId}")
     public ResponseEntity<ApiResponse<RegionDeleteResponse>> deleteRegion(
             @PathVariable UUID regionId,

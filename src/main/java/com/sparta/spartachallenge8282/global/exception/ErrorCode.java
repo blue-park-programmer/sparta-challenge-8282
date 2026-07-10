@@ -43,6 +43,8 @@ public enum ErrorCode {
     INVALID_PASSWORD(10104, HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다."),
     INVALID_SIGNUP_ROLE(10105, HttpStatus.BAD_REQUEST, "회원가입 시 CUSTOMER 또는 OWNER만 선택 가능합니다."),
     ALREADY_DELETED_USER(10106, HttpStatus.BAD_REQUEST, "이미 탈퇴한 회원입니다."),
+    INVALID_CREDENTIALS(10107, HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
+    DUPLICATE_PASSWORD(10108, HttpStatus.BAD_REQUEST, "기존 비밀번호와 동일하게 변경할 수 없습니다."),
 
 
     // ── Store (20001 ~ 29999) ─────────────────────────────────────────────────
@@ -52,6 +54,9 @@ public enum ErrorCode {
 
     // ── Category (30001 ~ 30999) ──────────────────────────────────────────────
     CATEGORY_NOT_FOUND(30001, HttpStatus.NOT_FOUND, "카테고리를 찾을 수 없습니다."),
+    DUPLICATE_CATEGORY_NAME(30002, HttpStatus.CONFLICT, "이미 존재하는 카테고리명입니다."),
+    CATEGORY_IN_USE(30003, HttpStatus.CONFLICT, "사용 중인 카테고리는 삭제할 수 없습니다."),
+    ALREADY_DELETED_CATEGORY(30004, HttpStatus.CONFLICT, "이미 삭제된 카테고리입니다."),
 
     // ── Region (31001 ~ 31999) ──
     REGION_NOT_FOUND(31001, HttpStatus.NOT_FOUND, "지역을 찾을 수 없습니다."),
@@ -62,6 +67,10 @@ public enum ErrorCode {
 
     // ── Menu (40001 ~ 49999) ────────────────────────────────────────────────
     MENU_NOT_FOUND(40001, HttpStatus.NOT_FOUND, "메뉴를 찾을 수 없습니다."),
+    NO_MENU_PERMISSION(40002, HttpStatus.FORBIDDEN, "메뉴 관리 권한이 없습니다."),
+    INVALID_MENU_STATUS(40003, HttpStatus.BAD_REQUEST, "유효하지 않은 메뉴 상태입니다."),
+    INVALID_MENU_PRICE(40004, HttpStatus.BAD_REQUEST, "메뉴 가격은 0원 이상이어야 합니다."),
+    ALREADY_DELETED_MENU(40005, HttpStatus.CONFLICT, "이미 삭제된 메뉴입니다."),
 
 
     // ── Order (50001 ~ 59999) ─────────────────────────────────────────────────
