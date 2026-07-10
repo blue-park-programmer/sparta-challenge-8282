@@ -98,4 +98,17 @@ public class User extends BaseEntity {
             this.role = newRole;
         }
     }
+
+    /**
+     * 가게 등록 승인 시 OWNER 권한 부여.
+     *
+     * CUSTOMER인 경우에만 OWNER로 변경한다.
+     * 이미 OWNER인 경우에는 현재 역할을 유지한다.
+     * MANAGER 또는 MASTER를 OWNER로 변경하지 않는다.
+     */
+    public void promoteToOwner(){
+        if(this.role == UserRole.CUSTOMER){
+            this.role = UserRole.OWNER;
+        }
+    }
 }
