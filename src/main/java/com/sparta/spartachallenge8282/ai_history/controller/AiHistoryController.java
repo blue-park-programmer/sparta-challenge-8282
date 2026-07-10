@@ -27,11 +27,9 @@ public class AiHistoryController {
 
     @PostMapping("/ai/menu-description")
     public ResponseEntity<ApiResponse<AiHistoryResultResponseDto>> createAiHistory(
-            //@AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestParam Long userId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
             @Valid @RequestBody AiHistoryCreateRequestDto requestDto) {
-        //AiHistoryResultResponseDto response = aiHistoryService.createAiHistory(requestDto, userDetails.userId());
-        AiHistoryResultResponseDto response = aiHistoryService.createAiHistory(requestDto, userId);
+        AiHistoryResultResponseDto response = aiHistoryService.createAiHistory(requestDto, userDetails.userId());
 
     return ResponseEntity.ok(ApiResponse.success("AI 요청이 처리되었습니다.",response));
     }
