@@ -13,6 +13,7 @@ import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -80,8 +81,17 @@ public class Store extends BaseEntity {
     @Column(name = "store_status", nullable = false)
     private StoreStatus storeStatus;
 
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
     @Builder
-    public Store(
+    private Store(
             User owner,
             Category category,
             Region region,
@@ -92,12 +102,8 @@ public class Store extends BaseEntity {
             Integer minOrderPrice,
             Integer deliveryFee,
             Integer freeDeliveryAmount,
-            BigDecimal storeRating,
-            Integer reviewCount,
             LocalTime openTime,
-            LocalTime closeTime,
-            Boolean isOpen,
-            StoreStatus storeStatus
+            LocalTime closeTime
     ) {
         this.owner = owner;
         this.category = category;
@@ -109,13 +115,20 @@ public class Store extends BaseEntity {
         this.minOrderPrice = minOrderPrice;
         this.deliveryFee = deliveryFee;
         this.freeDeliveryAmount = freeDeliveryAmount;
-        this.storeRating = storeRating != null ? storeRating : BigDecimal.ZERO;
-        this.reviewCount = reviewCount != null ? reviewCount : 0;
         this.openTime = openTime;
         this.closeTime = closeTime;
-        this.isOpen = isOpen != null ? isOpen : true;
-        this.storeStatus = storeStatus != null ? storeStatus : StoreStatus.PENDING;
+
+        // 기본값
+        this.storeRating = BigDecimal.ZERO;
+        this.reviewCount = 0;
+        this.isOpen = false;
+        this.storeStatus = StoreStatus.PENDING;
+
+        this.approvedAt = null;
+        this.rejectedAt = null;
+        this.rejectionReason = null;
     }
+
 
     public void approve() {
         this.storeStatus = StoreStatus.APPROVED;
