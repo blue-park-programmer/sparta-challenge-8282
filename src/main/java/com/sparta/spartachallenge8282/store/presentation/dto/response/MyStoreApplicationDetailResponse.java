@@ -1,16 +1,17 @@
 package com.sparta.spartachallenge8282.store.presentation.dto.response;
 
 import com.sparta.spartachallenge8282.store.domain.Store;
-import com.sparta.spartachallenge8282.store.domain.StoreStatus;
+import com.sparta.spartachallenge8282.store.domain.StoreApplication;
+import com.sparta.spartachallenge8282.store.domain.StoreApplicationStatus;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
 public record MyStoreApplicationDetailResponse(
-        UUID storeId,
-        String categoryName,
-        String regionName,
+        UUID applicationId,
+        UUID categoryId,
+        UUID regionId,
         String storeName,
         String storeTel,
         String storeImage,
@@ -20,33 +21,38 @@ public record MyStoreApplicationDetailResponse(
         Integer freeDeliveryAmount,
         LocalTime openTime,
         LocalTime closeTime,
-        StoreStatus storeStatus,
+        StoreApplicationStatus storeStatus,
         LocalDateTime createdAt,
         LocalDateTime approvedAt,
         LocalDateTime rejectedAt,
         String rejectionReason
 
 ) {
-    public static MyStoreApplicationDetailResponse from(Store store) {
+    public static MyStoreApplicationDetailResponse from(StoreApplication application) {
         return new MyStoreApplicationDetailResponse(
-                store.getId(),
-                store.getCategory().getName(),
-                store.getRegion().getName(),
-                store.getStoreName(),
-                store.getStoreTel(),
-                store.getStoreImage(),
-                store.getAddress(),
-                store.getMinOrderPrice(),
-                store.getDeliveryFee(),
-                store.getFreeDeliveryAmount(),
-                store.getOpenTime(),
-                store.getCloseTime(),
-                store.getStoreStatus(),
+                application.getId(),
 
-                store.getCreatedAt(),
-                store.getApprovedAt(),
-                store.getRejectedAt(),
-                store.getRejectionReason()
+                application.getCategory().getId(),
+                application.getRegion().getId(),
+
+                application.getStoreName(),
+                application.getStoreTel(),
+                application.getStoreImage(),
+                application.getAddress(),
+
+                application.getMinOrderPrice(),
+                application.getDeliveryFee(),
+                application.getFreeDeliveryAmount(),
+
+                application.getOpenTime(),
+                application.getCloseTime(),
+
+                application.getStatus(),
+
+                application.getCreatedAt(),
+                application.getApprovedAt(),
+                application.getRejectedAt(),
+                application.getRejectionReason()
         );
     }
 }

@@ -8,16 +8,13 @@ import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.global.security.UserDetailsImpl;
 import com.sparta.spartachallenge8282.region.domain.Region;
 import com.sparta.spartachallenge8282.region.domain.RegionRepository;
-import com.sparta.spartachallenge8282.store.domain.Store;
-import com.sparta.spartachallenge8282.store.domain.StoreRepository;
-import com.sparta.spartachallenge8282.store.domain.StoreStatus;
+import com.sparta.spartachallenge8282.store.domain.*;
 import com.sparta.spartachallenge8282.store.presentation.dto.request.StoreApplicationRequest;
 import com.sparta.spartachallenge8282.store.presentation.dto.request.StoreRejectRequest;
 import com.sparta.spartachallenge8282.store.presentation.dto.response.*;
 import com.sparta.spartachallenge8282.user.entity.User;
 import com.sparta.spartachallenge8282.user.entity.UserRole;
 import com.sparta.spartachallenge8282.user.repository.UserRepository;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +30,7 @@ public class StoreService {
     private final RegionRepository regionRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final StoreApplicationRepository storeApplicationRepository;
 
     //가게 등록 및 조회 절차
     /**
@@ -41,7 +39,7 @@ public class StoreService {
      * CUSTOMER와 OWNER 모두 신청할 수 있다.
      */
     @Transactional
-    public MyStoreApplicationCreateResponse createStore(
+    public MyStoreApplicationCreateResponse createStoreApplication(
             StoreApplicationRequest request,
             UserDetailsImpl userDetails
     ) {
@@ -55,13 +53,14 @@ public class StoreService {
                .orElseThrow(() ->
                        new CustomException(ErrorCode.REGION_NOT_FOUND)
                );
-       User user = userRepository.findById(userDetails.userId())
+       User applicantUser = userRepository.findById(userDetails.userId())
                 .orElseThrow(() ->
                         new CustomException(ErrorCode.USER_NOT_FOUND)
                 );
 
-        Store store = Store.builder()
-                .owner(user)
+
+        StoreApplication application = StoreApplication.builder()
+                .applicant(applicantUser)
                 .category(category)
                 .region(region)
                 .storeName(request.storeName())
@@ -75,21 +74,20 @@ public class StoreService {
                 .closeTime(request.closeTime())
                 .build();
 
-        return MyStoreApplicationCreateResponse.from(storeRepository.save(store));
+        return MyStoreApplicationCreateResponse.from(storeApplicationRepository.save(application));
     }
 
     /**
      * 본인의 가게 등록 신청 목록 조회
      */
     @Transactional(readOnly = true)
-    public PageResponse<StoreApplicationListResponse> getMyStoreApplications(
+    public PageResponse<MyStoreApplicationListResponse> getMyStoreApplications(
             UserDetailsImpl userDetails,
             Pageable pageable
     ) {
         return PageResponse.from(
-                storeRepository
-                        .findAllByOwner_Id(userDetails.userId(), pageable)
-                        .map(StoreApplicationListResponse::from)
+                storeApplicationRepository.findAllByApplicant_Id(userDetails.userId(), pageable)
+                        .map(MyStoreApplicationListResponse::from)
         );
     }
 
@@ -98,14 +96,14 @@ public class StoreService {
      */
     @Transactional(readOnly = true)
     public MyStoreApplicationDetailResponse getMyStoreApplication(
-            UUID storeId,
+            UUID applicationId,
             UserDetailsImpl userDetails
     ) {
-        return storeRepository
-                .findByIdAndOwner_Id(storeId, userDetails.userId())
+        return storeApplicationRepository
+                .findByIdAndApplicant_Id(applicationId, userDetails.userId())
                 .map(MyStoreApplicationDetailResponse::from)
                 .orElseThrow(() ->
-                        new CustomException(ErrorCode.STORE_NOT_FOUND)
+                        new CustomException(ErrorCode.STORE_APPLICATION_NOT_FOUND)
                 );
     }
 
@@ -115,28 +113,30 @@ public class StoreService {
     /**
      * 관리자 가게 등록 신청 목록 조회
      */
-    public PageResponse<AdminStoreApplicationListResponse> getAdminStoreApplications(StoreStatus status, Pageable pageable, UserDetailsImpl userDetails) {
+    @Transactional(readOnly = true)
+    public PageResponse<AdminStoreApplicationListResponse> getAdminStoreApplications(StoreApplicationStatus status, Pageable pageable, UserDetailsImpl userDetails) {
         validateManagerRole(userDetails);
-        Page<Store> stores;
+        Page<StoreApplication> applications;
 
         if(status == null){
-            stores = storeRepository.findAll(pageable);
+            applications = storeApplicationRepository.findAll(pageable);
         }else{
-            stores = storeRepository.findAllByStoreStatus(status, pageable);
+            applications = storeApplicationRepository.findAllByStatus(status, pageable);
         }
-        return PageResponse.from(stores.map(AdminStoreApplicationListResponse::from));
+        return PageResponse.from(applications.map(AdminStoreApplicationListResponse::from));
     }
 
     /**
      * 관리자 가게 등록 신청 상세 조회
      */
-    public AdminStoreApplicationDetailResponse getAdminStoreApplication(UUID storeId, UserDetailsImpl userDetails) {
+    @Transactional(readOnly = true)
+    public AdminStoreApplicationDetailResponse getAdminStoreApplication(UUID applicationId, UserDetailsImpl userDetails) {
         validateManagerRole(userDetails);
 
-        Store store = storeRepository.findById(storeId)
+        StoreApplication application = storeApplicationRepository.findById(applicationId)
                 .orElseThrow(()->
-                        new CustomException(ErrorCode.STORE_NOT_FOUND));
-        return AdminStoreApplicationDetailResponse.from(store);
+                        new CustomException(ErrorCode.STORE_APPLICATION_NOT_FOUND));
+        return AdminStoreApplicationDetailResponse.from(application);
     }
 
 
@@ -146,21 +146,24 @@ public class StoreService {
      * MANAGER 또는 MASTER만 가능하다.
      */
     @Transactional
-    public StoreApplicationProcessResponse approveStore(UUID storeId, UserDetailsImpl userDetails) {
+    public StoreApplicationProcessResponse approveStore(UUID applicationId, UserDetailsImpl userDetails) {
         validateManagerRole(userDetails);
 
-        Store store = storeRepository.findById(storeId)
+        StoreApplication application = storeApplicationRepository.findById(applicationId)
                 .orElseThrow(()->
-                        new CustomException(ErrorCode.STORE_NOT_FOUND)
+                        new CustomException(ErrorCode.STORE_APPLICATION_NOT_FOUND)
                 );
 
         //승인 또는 거절은 PENDING 상태에서만 가능하게 한다.
-        if (store.getStoreStatus() != StoreStatus.PENDING) {
-            throw new CustomException(ErrorCode.INVALID_STORE_STATUS);
+        if (application.getStatus() != StoreApplicationStatus.PENDING) {
+            throw new CustomException(ErrorCode.INVALID_STORE_APPLICATION_STATUS);
         }
-        store.approve();
-        store.getOwner().promoteToOwner();
-        return StoreApplicationProcessResponse.from(store);
+        application.approve();
+
+        Store savedStore = storeRepository.save(Store.from(application));
+
+        application.getApplicant().promoteToOwner();
+        return StoreApplicationProcessResponse.from(application, savedStore);
     }
 
     /**
@@ -170,26 +173,51 @@ public class StoreService {
      * 거절 시 사용자 권한은 변경하지 않는다.
      */
     @Transactional
-    public StoreApplicationProcessResponse rejectStore(UUID storeId, StoreRejectRequest request, UserDetailsImpl userDetails) {
+    public StoreApplicationProcessResponse rejectStore(UUID applicationId, StoreRejectRequest request, UserDetailsImpl userDetails) {
         validateManagerRole(userDetails);
 
-        Store store = storeRepository.findById(storeId)
+        StoreApplication application = storeApplicationRepository.findById(applicationId)
                 .orElseThrow(()->
-                        new CustomException(ErrorCode.STORE_NOT_FOUND)
+                        new CustomException(ErrorCode.STORE_APPLICATION_NOT_FOUND)
                 );
         //승인 또는 거절은 PENDING 상태에서만 가능하게 한다.
-        if (store.getStoreStatus() != StoreStatus.PENDING) {
-            throw new CustomException(ErrorCode.INVALID_STORE_STATUS);
+        if (application.getStatus() != StoreApplicationStatus.PENDING) {
+            throw new CustomException(ErrorCode.INVALID_STORE_APPLICATION_STATUS);
         } else if (request.rejectionReason() == null || request.rejectionReason().isBlank()) {
             throw new CustomException(ErrorCode.REJECTION_REASON_REQUIRED);
         }
 
-        store.reject(request.rejectionReason());
-        return StoreApplicationProcessResponse.from(store);
+        application.reject(request.rejectionReason());
+        return StoreApplicationProcessResponse.from(application);
 
 
 
     }
+
+
+    //일반 사용자 및 비회원 사용자의 가게 조회 ==========================
+
+    /**
+     * 가게 목록 조회
+     *
+     */
+    public PageResponse<UserStoreListResponse> getStores(Pageable pageable) {
+        Page<Store> stores = storeRepository.findAll(pageable);
+        return PageResponse.from(stores.map(UserStoreListResponse::from));
+    }
+
+    /**
+     * 가게 상세 조회
+     *
+     */
+    public UserStoreDetailResponse getStore(UUID storeId) {
+        Store store = storeRepository.findById(storeId).orElseThrow(
+                ()-> new CustomException(ErrorCode.STORE_NOT_FOUND)
+                );
+        return  UserStoreDetailResponse.from(store);
+    }
+
+
 
     //권한 검증 ==============
     /**

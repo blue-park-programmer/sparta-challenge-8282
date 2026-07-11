@@ -1,16 +1,18 @@
 package com.sparta.spartachallenge8282.store.presentation.dto.response;
 
 import com.sparta.spartachallenge8282.store.domain.Store;
-import com.sparta.spartachallenge8282.store.domain.StoreStatus;
+import com.sparta.spartachallenge8282.store.domain.StoreApplication;
+import com.sparta.spartachallenge8282.store.domain.StoreApplicationStatus;
 import com.sparta.spartachallenge8282.user.entity.UserRole;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record StoreApplicationProcessResponse(
+        UUID applicationId,
         UUID storeId,
         String storeName,
-        StoreStatus storeStatus,
+        StoreApplicationStatus status,
 
         Long ownerId,
         String ownerEmail,
@@ -21,19 +23,41 @@ public record StoreApplicationProcessResponse(
         String rejectionReason
 
 ) {
-    public static StoreApplicationProcessResponse from(Store store) {
+    public static StoreApplicationProcessResponse from(StoreApplication application, Store store) {
         return new StoreApplicationProcessResponse(
+                application.getId(),
                 store.getId(),
-                store.getStoreName(),
-                store.getStoreStatus(),
+                application.getStoreName(),
+                application.getStatus(),
 
-                store.getOwner().getId(),
-                store.getOwner().getEmail(),
-                store.getOwner().getRole(),
+                application.getApplicant().getId(),
+                application.getApplicant().getEmail(),
+                application.getApplicant().getRole(),
 
-                store.getApprovedAt(),
-                store.getRejectedAt(),
-                store.getRejectionReason()
+                application.getApprovedAt(),
+                application.getRejectedAt(),
+                application.getRejectionReason()
         );
     }
+
+    //거절 시 store는 생성되지 않음
+    public static StoreApplicationProcessResponse from(StoreApplication application) {
+        return new StoreApplicationProcessResponse(
+                application.getId(),
+                null,
+                application.getStoreName(),
+                application.getStatus(),
+
+
+                application.getApplicant().getId(),
+                application.getApplicant().getEmail(),
+                application.getApplicant().getRole(),
+
+                application.getApprovedAt(),
+                application.getRejectedAt(),
+                application.getRejectionReason()
+        );
+    }
+
+
 }

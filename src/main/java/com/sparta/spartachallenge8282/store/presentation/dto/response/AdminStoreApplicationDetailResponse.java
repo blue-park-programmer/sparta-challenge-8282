@@ -1,7 +1,8 @@
 package com.sparta.spartachallenge8282.store.presentation.dto.response;
 
 import com.sparta.spartachallenge8282.store.domain.Store;
-import com.sparta.spartachallenge8282.store.domain.StoreStatus;
+import com.sparta.spartachallenge8282.store.domain.StoreApplication;
+import com.sparta.spartachallenge8282.store.domain.StoreApplicationStatus;
 import com.sparta.spartachallenge8282.user.entity.UserRole;
 
 import java.time.LocalDateTime;
@@ -9,11 +10,11 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 public record AdminStoreApplicationDetailResponse(
-        UUID storeId,
+        UUID applicationId,
 
         Long applicantId,
-        String applicantNickname,
         String applicantEmail,
+        String applicantNickname,
         UserRole applicantRole,
 
         UUID categoryId,
@@ -34,46 +35,46 @@ public record AdminStoreApplicationDetailResponse(
         LocalTime openTime,
         LocalTime closeTime,
 
-        StoreStatus storeStatus,
+        StoreApplicationStatus status,
 
-        LocalDateTime appliedAt,
+        LocalDateTime createdAt,
         LocalDateTime approvedAt,
         LocalDateTime rejectedAt,
         String rejectionReason
 ) {
-    public static AdminStoreApplicationDetailResponse from(Store store) {
+    public static AdminStoreApplicationDetailResponse from(StoreApplication application) {
         return new AdminStoreApplicationDetailResponse(
-                store.getId(),
+                application.getId(),
 
-                store.getOwner().getId(),
-                store.getOwner().getNickname(),
-                store.getOwner().getEmail(),
-                store.getOwner().getRole(),
+                application.getApplicant().getId(),
+                application.getApplicant().getEmail(),
+                application.getApplicant().getNickname(),
+                application.getApplicant().getRole(),
 
-                store.getCategory().getId(),
-                store.getCategory().getName(),
+                application.getCategory().getId(),
+                application.getCategory().getName(),
 
-                store.getRegion().getId(),
-                store.getRegion().getName(),
+                application.getRegion().getId(),
+                application.getRegion().getName(),
 
-                store.getStoreName(),
-                store.getStoreTel(),
-                store.getStoreImage(),
-                store.getAddress(),
+                application.getStoreName(),
+                application.getStoreTel(),
+                application.getStoreImage(),
+                application.getAddress(),
 
-                store.getMinOrderPrice(),
-                store.getDeliveryFee(),
-                store.getFreeDeliveryAmount(),
+                application.getMinOrderPrice(),
+                application.getDeliveryFee(),
+                application.getFreeDeliveryAmount(),
 
-                store.getOpenTime(),
-                store.getCloseTime(),
+                application.getOpenTime(),
+                application.getCloseTime(),
 
-                store.getStoreStatus(),
+                application.getStatus(),
 
-                store.getCreatedAt(),
-                store.getApprovedAt(),
-                store.getRejectedAt(),
-                store.getRejectionReason()
+                application.getCreatedAt(),
+                application.getApprovedAt(),
+                application.getRejectedAt(),
+                application.getRejectionReason()
         );
     }
 }

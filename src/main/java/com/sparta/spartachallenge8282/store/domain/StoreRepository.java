@@ -12,42 +12,9 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
     @EntityGraph(attributePaths = {
             "category"
     })
-    Page<Store> findAllByOwner_Id(
-            Long ownerId,
-            Pageable pageable
-    );
-
-    @EntityGraph(attributePaths = {
-            "owner",
-            "category",
-            "region"
-    })
-    Optional<Store> findByIdAndOwner_Id(
-            UUID storeId,
-            Long ownerId
-    );
-
-    @Override
-    @EntityGraph(attributePaths = {
-            "owner",
-            "category",
-            "region"
-    })
     Page<Store> findAll(Pageable pageable);
 
     @EntityGraph(attributePaths = {
-            "owner",
-            "category",
-            "region"
-    })
-    Page<Store> findAllByStoreStatus(
-            StoreStatus storeStatus,
-            Pageable pageable
-    );
-
-    @Override
-    @EntityGraph(attributePaths = {
-            "owner",
             "category",
             "region"
     })

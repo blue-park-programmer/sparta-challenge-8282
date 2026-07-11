@@ -4,14 +4,13 @@ import com.sparta.spartachallenge8282.global.common.ApiResponse;
 import com.sparta.spartachallenge8282.global.common.PageResponse;
 import com.sparta.spartachallenge8282.global.security.UserDetailsImpl;
 import com.sparta.spartachallenge8282.store.application.StoreService;
-import com.sparta.spartachallenge8282.store.domain.StoreStatus;
+import com.sparta.spartachallenge8282.store.domain.StoreApplicationStatus;
 import com.sparta.spartachallenge8282.store.presentation.dto.request.StoreRejectRequest;
 import com.sparta.spartachallenge8282.store.presentation.dto.response.AdminStoreApplicationDetailResponse;
 import com.sparta.spartachallenge8282.store.presentation.dto.response.AdminStoreApplicationListResponse;
 import com.sparta.spartachallenge8282.store.presentation.dto.response.StoreApplicationProcessResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/store-applications")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('MANAGER', 'MASTER')")
+@PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
 public class AdminStoreController {
     private final StoreService storeService;
 
@@ -38,12 +37,12 @@ public class AdminStoreController {
     /**
      * 가게 등록 신청 승인
      */
-    @PatchMapping("/{storeId}/approve")
+    @PatchMapping("/{applicationId}/approve")
     public ResponseEntity<ApiResponse<StoreApplicationProcessResponse>> approveStore(
-            @PathVariable UUID storeId,
+            @PathVariable UUID applicationId,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-       StoreApplicationProcessResponse response = storeService.approveStore(storeId, userDetails);
+       StoreApplicationProcessResponse response = storeService.approveStore(applicationId, userDetails);
 
        return ResponseEntity.ok(ApiResponse.success("가게 등록 승인 성공", response));
 
@@ -52,13 +51,13 @@ public class AdminStoreController {
     /**
      * 가게 등록 신청 거절
      */
-    @PatchMapping("/{storeId}/reject")
+    @PatchMapping("/{applicationId}/reject")
     public ResponseEntity<ApiResponse<StoreApplicationProcessResponse>> rejectStore(
-            @PathVariable UUID storeId,
+            @PathVariable UUID applicationId,
             @Valid @RequestBody StoreRejectRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        StoreApplicationProcessResponse response = storeService.rejectStore(storeId, request, userDetails);
+        StoreApplicationProcessResponse response = storeService.rejectStore(applicationId, request, userDetails);
         return ResponseEntity.ok(ApiResponse.success("가게 등록 거절 성공", response));
     }
 
@@ -71,7 +70,7 @@ public class AdminStoreController {
      */
     @GetMapping()
     public ResponseEntity<ApiResponse<PageResponse<AdminStoreApplicationListResponse>>> getStoreApplications(
-            @RequestParam(required = false) StoreStatus status,
+            @RequestParam(required = false) StoreApplicationStatus status,
             @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal UserDetailsImpl userDetails
 
@@ -90,14 +89,14 @@ public class AdminStoreController {
     /**
      * 등록된 가게 상세 조회
      */
-    @GetMapping("/{storeId}")
+    @GetMapping("/{applicationId}")
     public ResponseEntity<ApiResponse<AdminStoreApplicationDetailResponse>> getStoreApplication(
-            @PathVariable UUID storeId,
+            @PathVariable UUID applicationId,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ){
         AdminStoreApplicationDetailResponse response =
                 storeService.getAdminStoreApplication(
-                        storeId,
+                        applicationId,
                         userDetails
                 );
         return ResponseEntity.ok(ApiResponse.success("등록 신청된 가게 상세 조회 성공", response));
