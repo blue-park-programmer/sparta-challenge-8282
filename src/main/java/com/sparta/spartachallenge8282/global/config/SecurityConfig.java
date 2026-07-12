@@ -47,8 +47,9 @@ public class SecurityConfig {
             // User 로그인 기능 구현 전 주문 생성 테스트를 위한 임시 허용
             "/api/v1/orders",
             "/api/v1/orders/{orderId}",
-            "api/v1/orders/{orderId}/items",
-            "api/v1/orders/{orderId}/cancel",
+            "/api/v1/orders/{orderId}/items",
+            "/api/v1/orders/{orderId}/cancel",
+            "/api/v1/orders/{orderId}/status",
             // Swagger (추후 추가 시)
             "/api/v1/auth/signup",
             "/api/v1/auth/login",
