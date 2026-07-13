@@ -3,10 +3,8 @@ package com.sparta.spartachallenge8282.order.controller;
 import com.sparta.spartachallenge8282.global.common.ApiResponse;
 import com.sparta.spartachallenge8282.global.common.PageResponse;
 import com.sparta.spartachallenge8282.order.dto.request.OrderCreateRequestDto;
-import com.sparta.spartachallenge8282.order.dto.response.OrderCreateResponseDto;
-import com.sparta.spartachallenge8282.order.dto.response.OrderDetailResponseDto;
-import com.sparta.spartachallenge8282.order.dto.response.OrderItemResponseDto;
-import com.sparta.spartachallenge8282.order.dto.response.OrderListResponseDto;
+import com.sparta.spartachallenge8282.order.dto.request.OrderStatusUpdateRequestDto;
+import com.sparta.spartachallenge8282.order.dto.response.*;
 import com.sparta.spartachallenge8282.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -108,6 +106,27 @@ public class OrderController {
 
         return ResponseEntity.ok(
                 ApiResponse.success("주문 취소 성공", response)
+        );
+    }
+
+    // 주문 상태 변경
+    private static final Long TEMP_OWNER_ID = 2L;
+    private static final String TEMP_OWNER_ROLE = "OWNER";
+    @PatchMapping("/{orderId}/status")
+    public ResponseEntity<ApiResponse<OrderStatusUpdateResponseDto>> updateOrderStatus(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody OrderStatusUpdateRequestDto request
+    ) {
+        OrderStatusUpdateResponseDto response = orderService.updateOrderStatus(
+                TEMP_OWNER_ID,
+                TEMP_OWNER_ROLE,
+                orderId,
+                request.orderStatus(),
+                request.reason()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success("주문 상태 변경 성공", response)
         );
     }
 
