@@ -40,13 +40,16 @@ public class SecurityConfig {
      * 인증 없이 접근 가능한 경로 화이트리스트 (v1 API 설계 기준 반영)
      */
     private static final String[] PUBLIC_URLS = {
+            // 배포 헬스체크 (인증과 무관하게 항상 200 응답)
+            "/actuator/health",
             "/api/users/signup",
             "/api/users/login",
             // User 로그인 기능 구현 전 주문 생성 테스트를 위한 임시 허용
             "/api/v1/orders",
             "/api/v1/orders/{orderId}",
-            "api/v1/orders/{orderId}/items",
-            "api/v1/orders/{orderId}/cancel",
+            "/api/v1/orders/{orderId}/items",
+            "/api/v1/orders/{orderId}/cancel",
+            "/api/v1/orders/{orderId}/status",
             // Swagger (추후 추가 시)
             "/api/v1/auth/signup",
             "/api/v1/auth/login",
@@ -68,7 +71,10 @@ public class SecurityConfig {
                         ex.authenticationEntryPoint(authEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_URLS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/stores/**", "/api/v1/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/stores/**", "/api/v1/products/**",
+                                "/api/v1/regions/**", "/api/v1/categories/**",
+                                "/api/v1/menus/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
