@@ -4,6 +4,7 @@ import com.sparta.spartachallenge8282.global.exception.CustomException;
 import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.global.common.PageableUtil;
 import com.sparta.spartachallenge8282.menu.domain.MenuRepository;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOptionRepository;
 import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroup;
 import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroupRepository;
 import com.sparta.spartachallenge8282.menu.optiongroup.presentation.dto.request.MenuOptionGroupCreateRequest;
@@ -32,6 +33,7 @@ public class MenuOptionGroupService {
 
     private final MenuOptionGroupRepository optionGroupRepository;
     private final MenuRepository menuRepository;
+    private final MenuOptionRepository optionRepository;
 
     @Transactional
     public UUID createOptionGroup(UUID menuId, MenuOptionGroupCreateRequest request) {
@@ -89,7 +91,8 @@ public class MenuOptionGroupService {
             throw new CustomException(ErrorCode.ALREADY_DELETED_OPTION_GROUP);
         }
         // TODO(권한, auth 브랜치): 소유권 검증
-        // TODO: 하위 옵션 cascade 소프트삭제 정책 (옵션 연동 시 확정)
+        optionRepository.findAllByOptionGroupIdAndDeletedAtIsNull(id)
+                .forEach(option -> option.softDelete(userId));
         group.softDelete(userId);
         return group.getDeletedAt();
     }
