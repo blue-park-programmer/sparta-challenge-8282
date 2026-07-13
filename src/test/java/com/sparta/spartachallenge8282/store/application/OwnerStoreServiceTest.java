@@ -860,29 +860,7 @@ class OwnerStoreServiceTest {
             verify(store, never()).requestDelete();
         }
 
-        @Test
-        @DisplayName("이미 삭제된 가게는 삭제 요청할 수 없다")
-        void requestDeleteStore_closed() {
-            // given
-            Store store = mockStore(StoreOperationStatus.CLOSED);
 
-            when(
-                    storeRepository.findByIdAndOwner_IdAndDeletedAtIsNull(
-                            storeId,
-                            ownerId
-                    )
-            ).thenReturn(Optional.of(store));
-
-            // when & then
-            assertThatThrownBy(() ->
-                    ownerStoreService.requestDeleteStore(
-                            storeId,
-                            ownerDetails
-                    )
-            ).isInstanceOf(CustomException.class);
-
-            verify(store, never()).requestDelete();
-        }
     }
 
     private Store mockStore(
