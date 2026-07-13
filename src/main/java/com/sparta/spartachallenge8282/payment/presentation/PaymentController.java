@@ -46,9 +46,11 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     // ── 10.1 결제 생성 ──────────────────────────────────────────────────────────
+    // 결제 생성은 주문 소유자(CUSTOMER)의 self-service 액션이다. 서비스에서 order.userId == 요청자
+    // 소유자 검증을 강제하므로, 남의 주문을 결제할 수 없는 CUSTOMER 로 롤을 한정한다.
     @PostMapping("/api/v1/payments")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyAuthority('ROLE_CUSTOMER', 'ROLE_MANAGER', 'ROLE_MASTER')")
+    @PreAuthorize("hasAuthority('ROLE_CUSTOMER')")
     public ApiResponse<PaymentCreateResponse> createPayment(
             @Valid @RequestBody PaymentCreateRequest request,
             @RequestHeader(value = "Idempotency-Key") String idempotencyKey,

@@ -4,6 +4,7 @@ import com.sparta.spartachallenge8282.global.exception.CustomException;
 import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.global.security.UserDetailsImpl;
 import com.sparta.spartachallenge8282.order.entity.Order;
+import com.sparta.spartachallenge8282.order.enums.OrderStatus;
 import com.sparta.spartachallenge8282.order.repository.OrderRepository;
 import com.sparta.spartachallenge8282.payment.presentation.dto.request.PaymentCancelRequest;
 import com.sparta.spartachallenge8282.payment.presentation.dto.request.PaymentCreateRequest;
@@ -216,6 +217,33 @@ class PaymentServiceIntegrationTest {
             assertThatThrownBy(() -> paymentService.createPayment(req, CUSTOMER_ID, null))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+
+        @Test
+        @DisplayName("실패 - 남의 주문을 결제하면 ACCESS_DENIED (소유자 검증)")
+        void notOrderOwner() {
+            Order order = persistOrder(CUSTOMER_ID, 27000); // 주문 소유자 = CUSTOMER_ID
+            PaymentCreateRequest req =
+                    new PaymentCreateRequest(order.getId(), 27000L, PaymentMethod.CARD);
+
+            // 다른 유저가 이 주문을 결제하려 하면 거부
+            assertThatThrownBy(() -> paymentService.createPayment(req, OTHER_CUSTOMER_ID, null))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.ACCESS_DENIED);
+        }
+
+        @Test
+        @DisplayName("실패 - PENDING 이 아닌 주문은 결제할 수 없다 (PAYMENT_ORDER_NOT_PAYABLE)")
+        void orderNotPayable() {
+            Order order = persistOrder(CUSTOMER_ID, 27000);
+            order.changeStatus(OrderStatus.CANCELED); // 결제 대기 상태가 아님
+            orderRepository.save(order);
+            PaymentCreateRequest req =
+                    new PaymentCreateRequest(order.getId(), 27000L, PaymentMethod.CARD);
+
+            assertThatThrownBy(() -> paymentService.createPayment(req, CUSTOMER_ID, null))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.PAYMENT_ORDER_NOT_PAYABLE);
         }
 
         // 멱등 재요청 / 중복 결제(유니크 제약 위반 경로)는 커밋된 결제가 있어야 재현되므로

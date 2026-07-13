@@ -4,6 +4,7 @@ import com.sparta.spartachallenge8282.global.exception.CustomException;
 import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.global.security.UserDetailsImpl;
 import com.sparta.spartachallenge8282.order.entity.Order;
+import com.sparta.spartachallenge8282.order.enums.OrderStatus;
 import com.sparta.spartachallenge8282.order.repository.OrderRepository;
 import com.sparta.spartachallenge8282.payment.presentation.dto.request.PaymentCancelRequest;
 import com.sparta.spartachallenge8282.payment.presentation.dto.request.PaymentCreateRequest;
@@ -70,7 +71,8 @@ public class PaymentService {
     private static final String ROLE_MASTER   = UserRole.MASTER.getAuthority();
 
     /**
-     * 결제 생성. {@code amount} 는 주문 금액과 일치해야 한다.
+     * 결제 생성. 요청자는 주문 소유자여야 하고(본인 주문만 결제), 주문은 결제 대기(PENDING) 상태여야 하며,
+     * {@code amount} 는 주문 금액과 일치해야 한다.
      *
      * <p><b>insert-first 멱등 처리</b> — 사전 조회 없이 곧바로 INSERT 를 시도한다(TOCTOU 경합 제거).
      * {@code idempotency_key}/{@code order_id} 유니크 제약 위반이 나면 {@link #resolveConflict}
@@ -112,6 +114,16 @@ public class PaymentService {
         // 주문 조회 (60004)
         Order order = orderRepository.findByIdAndDeletedAtIsNull(request.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ORDER_NOT_FOUND));
+
+        // 소유자 검증 — 본인 주문에만 결제할 수 있다(남의 주문 결제 생성 = IDOR 차단).
+        if (!order.getUserId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // 주문 상태 검증 — 결제 대기(PENDING) 주문에만 결제 가능(취소/완료된 주문 결제 차단). (60011)
+        if (order.getOrderStatus() != OrderStatus.PENDING) {
+            throw new CustomException(ErrorCode.PAYMENT_ORDER_NOT_PAYABLE);
+        }
 
         // 금액 일치 검증 (60006) — 요청 금액과 주문 총액이 같아야 함
         if (request.amount() != order.getTotalPrice()) {
