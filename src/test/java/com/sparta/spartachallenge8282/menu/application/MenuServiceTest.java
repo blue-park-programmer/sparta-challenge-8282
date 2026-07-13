@@ -6,6 +6,10 @@ import com.sparta.spartachallenge8282.menu.domain.Menu;
 import com.sparta.spartachallenge8282.menu.domain.MenuBadge;
 import com.sparta.spartachallenge8282.menu.domain.MenuRepository;
 import com.sparta.spartachallenge8282.menu.domain.MenuStatus;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOption;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOptionRepository;
+import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroup;
+import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroupRepository;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuCreateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuUpdateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuResponse;
@@ -43,6 +47,12 @@ class MenuServiceTest {
     @Mock
     private MenuRepository menuRepository;
 
+    @Mock
+    private MenuOptionGroupRepository optionGroupRepository;
+
+    @Mock
+    private MenuOptionRepository optionRepository;
+
     @InjectMocks
     private MenuService menuService;
 
@@ -55,6 +65,28 @@ class MenuServiceTest {
                 .sortOrder(1)
                 .status(MenuStatus.ON_SALE)
                 .badge(MenuBadge.NONE)
+                .build();
+    }
+
+    private MenuOptionGroup sampleGroup(UUID menuId) {
+        return MenuOptionGroup.builder()
+                .menuId(menuId)
+                .name("음료 선택")
+                .isRequired(true)
+                .minSelect(1)
+                .maxSelect(1)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+    }
+
+    private MenuOption sampleOption(UUID optionGroupId) {
+        return MenuOption.builder()
+                .optionGroupId(optionGroupId)
+                .name("콜라")
+                .additionalPrice(1000)
+                .sortOrder(1)
+                .isActive(true)
                 .build();
     }
 
@@ -205,6 +237,7 @@ class MenuServiceTest {
         ReflectionTestUtils.setField(menu, "id", id);
 
         given(menuRepository.findById(id)).willReturn(Optional.of(menu));
+        given(optionGroupRepository.findAllByMenuIdAndDeletedAtIsNull(id)).willReturn(List.of());
 
         // when
         LocalDateTime deletedAt = menuService.deleteMenu(id, userId);
@@ -214,6 +247,33 @@ class MenuServiceTest {
         assertThat(menu.isDeleted()).isTrue();
         assertThat(menu.getDeletedAt()).isEqualTo(deletedAt);
         assertThat(menu.getDeletedBy()).isEqualTo(userId);
+    }
+
+    @Test
+    void 메뉴삭제_성공하면_하위옵션그룹과_옵션도_소프트삭제된다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Long userId = 1L;
+        Menu menu = sampleMenu(UUID.randomUUID());
+        MenuOptionGroup group = sampleGroup(id);
+        MenuOption option = sampleOption(UUID.randomUUID());
+        ReflectionTestUtils.setField(menu, "id", id);
+        ReflectionTestUtils.setField(group, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(option, "id", UUID.randomUUID());
+
+        given(menuRepository.findById(id)).willReturn(Optional.of(menu));
+        given(optionGroupRepository.findAllByMenuIdAndDeletedAtIsNull(id)).willReturn(List.of(group));
+        given(optionRepository.findAllByOptionGroupIdAndDeletedAtIsNull(group.getId())).willReturn(List.of(option));
+
+        // when
+        menuService.deleteMenu(id, userId);
+
+        // then
+        assertThat(menu.isDeleted()).isTrue();
+        assertThat(group.isDeleted()).isTrue();
+        assertThat(option.isDeleted()).isTrue();
+        assertThat(group.getDeletedBy()).isEqualTo(userId);
+        assertThat(option.getDeletedBy()).isEqualTo(userId);
     }
 
     @Test
