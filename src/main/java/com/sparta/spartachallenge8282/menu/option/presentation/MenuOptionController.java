@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,13 +38,14 @@ import java.util.UUID;
  * 쓰기는 OWNER/MANAGER/MASTER(소유권 검증은 auth 브랜치), 조회는 비로그인 공개.
  */
 @RestController
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class MenuOptionController {
 
     private final MenuOptionService optionService;
 
     @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ROLE_MANAGER','ROLE_MASTER')")
-    @PostMapping("/api/v1/option-groups/{optionGroupId}/options")
+    @PostMapping("/option-groups/{optionGroupId}/options")
     public ResponseEntity<ApiResponse<MenuOptionCreateResponse>> createOption(
             @PathVariable UUID optionGroupId,
             @Valid @RequestBody MenuOptionCreateRequest request) {
@@ -52,7 +54,7 @@ public class MenuOptionController {
                 .body(ApiResponse.success("옵션 생성 완료", new MenuOptionCreateResponse(id)));
     }
 
-    @GetMapping("/api/v1/option-groups/{optionGroupId}/options")
+    @GetMapping("/option-groups/{optionGroupId}/options")
     public ResponseEntity<ApiResponse<PageResponse<MenuOptionResponse>>> getOptionList(
             @PathVariable UUID optionGroupId,
             @RequestParam(required = false) String keyword,
@@ -64,14 +66,14 @@ public class MenuOptionController {
                 ApiResponse.success("옵션 목록 조회 성공", data));
     }
 
-    @GetMapping("/api/v1/options/{optionId}")
+    @GetMapping("/options/{optionId}")
     public ResponseEntity<ApiResponse<MenuOptionResponse>> getOption(@PathVariable UUID optionId) {
         return ResponseEntity.ok(
                 ApiResponse.success("옵션 조회 성공", optionService.getOption(optionId)));
     }
 
     @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ROLE_MANAGER','ROLE_MASTER')")
-    @PatchMapping("/api/v1/options/{optionId}")
+    @PatchMapping("/options/{optionId}")
     public ResponseEntity<ApiResponse<MenuOptionResponse>> updateOption(
             @PathVariable UUID optionId,
             @Valid @RequestBody MenuOptionUpdateRequest request) {
@@ -80,7 +82,7 @@ public class MenuOptionController {
     }
 
     @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ROLE_MANAGER','ROLE_MASTER')")
-    @DeleteMapping("/api/v1/options/{optionId}")
+    @DeleteMapping("/options/{optionId}")
     public ResponseEntity<ApiResponse<MenuOptionDeleteResponse>> deleteOption(
             @PathVariable UUID optionId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
