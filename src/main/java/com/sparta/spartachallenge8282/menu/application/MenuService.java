@@ -7,6 +7,8 @@ import com.sparta.spartachallenge8282.menu.domain.Menu;
 import com.sparta.spartachallenge8282.menu.domain.MenuBadge;
 import com.sparta.spartachallenge8282.menu.domain.MenuRepository;
 import com.sparta.spartachallenge8282.menu.domain.MenuStatus;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOptionRepository;
+import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroupRepository;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuCreateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuUpdateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuResponse;
@@ -42,6 +44,8 @@ import java.util.UUID;
 public class MenuService {
 
     private final MenuRepository menuRepository;
+    private final MenuOptionGroupRepository optionGroupRepository;
+    private final MenuOptionRepository optionRepository;
 
     @Transactional
     public UUID createMenu(UUID storeId, MenuCreateRequest request) {
@@ -107,6 +111,12 @@ public class MenuService {
         }
 
         // TODO(menu-auth 브랜치): NO_MENU_PERMISSION(가게 소유자 확인) / STORE_NOT_FOUND — store, user 연동
+        optionGroupRepository.findAllByMenuIdAndDeletedAtIsNull(id)
+                .forEach(group -> {
+                    optionRepository.findAllByOptionGroupIdAndDeletedAtIsNull(group.getId())
+                            .forEach(option -> option.softDelete(userId));
+                    group.softDelete(userId);
+                });
         menu.softDelete(userId);
         return menu.getDeletedAt();
     }

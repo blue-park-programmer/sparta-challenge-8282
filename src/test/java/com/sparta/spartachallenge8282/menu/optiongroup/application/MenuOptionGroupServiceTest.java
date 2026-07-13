@@ -6,6 +6,8 @@ import com.sparta.spartachallenge8282.menu.domain.Menu;
 import com.sparta.spartachallenge8282.menu.domain.MenuBadge;
 import com.sparta.spartachallenge8282.menu.domain.MenuRepository;
 import com.sparta.spartachallenge8282.menu.domain.MenuStatus;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOption;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOptionRepository;
 import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroup;
 import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroupRepository;
 import com.sparta.spartachallenge8282.menu.optiongroup.presentation.dto.request.MenuOptionGroupCreateRequest;
@@ -43,6 +45,9 @@ class MenuOptionGroupServiceTest {
     @Mock
     private MenuRepository menuRepository;
 
+    @Mock
+    private MenuOptionRepository optionRepository;
+
     @InjectMocks
     private MenuOptionGroupService optionGroupService;
 
@@ -65,6 +70,16 @@ class MenuOptionGroupServiceTest {
                 .isRequired(true)
                 .minSelect(1)
                 .maxSelect(1)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+    }
+
+    private MenuOption sampleOption(UUID optionGroupId) {
+        return MenuOption.builder()
+                .optionGroupId(optionGroupId)
+                .name("콜라")
+                .additionalPrice(1000)
                 .sortOrder(1)
                 .isActive(true)
                 .build();
@@ -267,6 +282,7 @@ class MenuOptionGroupServiceTest {
         ReflectionTestUtils.setField(group, "id", id);
 
         given(optionGroupRepository.findById(id)).willReturn(Optional.of(group));
+        given(optionRepository.findAllByOptionGroupIdAndDeletedAtIsNull(id)).willReturn(List.of());
 
         // when
         LocalDateTime deletedAt = optionGroupService.deleteOptionGroup(id, userId);
@@ -276,6 +292,28 @@ class MenuOptionGroupServiceTest {
         assertThat(group.isDeleted()).isTrue();
         assertThat(group.getDeletedAt()).isEqualTo(deletedAt);
         assertThat(group.getDeletedBy()).isEqualTo(userId);
+    }
+
+    @Test
+    void 옵션그룹삭제_성공하면_하위옵션도_소프트삭제된다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Long userId = 1L;
+        MenuOptionGroup group = sampleGroup(UUID.randomUUID());
+        MenuOption option = sampleOption(id);
+        ReflectionTestUtils.setField(group, "id", id);
+        ReflectionTestUtils.setField(option, "id", UUID.randomUUID());
+
+        given(optionGroupRepository.findById(id)).willReturn(Optional.of(group));
+        given(optionRepository.findAllByOptionGroupIdAndDeletedAtIsNull(id)).willReturn(List.of(option));
+
+        // when
+        optionGroupService.deleteOptionGroup(id, userId);
+
+        // then
+        assertThat(group.isDeleted()).isTrue();
+        assertThat(option.isDeleted()).isTrue();
+        assertThat(option.getDeletedBy()).isEqualTo(userId);
     }
 
     @Test
