@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.sparta.spartachallenge8282.payment.application.PaymentService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,11 +34,20 @@ import java.util.UUID;
 @Transactional
 public class OrderService {
 
+    //store별 배달비 정책 결정 전까지 사용하는 임시 배달비
     private static final int DEFAULT_DELIVERY_FEE = 3000;
+    //쿠폰/프로모션 기능 연동 전 임시 할인 금액
     private static final int DEFAULT_DISCOUNT_AMOUNT = 0;
 
     private final OrderRepository orderRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+
+    /**
+     * 주문 취소 시 연결된 결제의 상태를 변경하기 위한 서비스
+     * OrderService가 PaymentRepository나 Payment 엔티티를 직접 다루지 않고,
+     * Payment 도메인에 결제 환불/취소 요쳥
+     */
+    private final PaymentService paymentService;
 
     /*주문 생성 시 실제 메뉴 정보 조회
      * MenuRepository의 역할:
@@ -267,13 +277,24 @@ public class OrderService {
             Long userId,
             UUID orderId
     ) {
+        //삭제 되지 않은 주문 조회
         Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-
+        // 로그인한 본인 주문인지 확인
         validateOrderOwner(order, userId);
+        // 고객 취소는 PENDING 상태에서만 허용
         validateCancelable(order);
+        // 주문 생성 후 5분 이내만 취소 가능
         validateCancelTimeLimit(order);
 
+        // PAYMENT가 존재하면 : PAID >  REFUNDED
+        // PAYMENT가 없으면 : 아무 작업 없이 종료
+        paymentService.refundByOrder(
+                order.getId(),
+                "고객 주문 취소"
+        );
+
+        // PENDING -> CANCELED
         order.cancel();
 
         return OrderDetailResponseDto.from(order);
@@ -307,16 +328,29 @@ public class OrderService {
             OrderStatus nextStatus,
             String reason
     ) {
+        /// 1.주문 조회
         Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
-
+        /// 2. 주문 상태 변경 권한 검증
         validateStatusUpdatePermission(order, userId, userRole);
+        /// 3. 상태 변경 가능한지 검증
         validateStatusTransition(order.getOrderStatus(), nextStatus);
 
+        /// 4. 이력 저장을 위한 변경 전 상태 보관
         OrderStatus previousStatus = order.getOrderStatus();
 
+        /// 5. 취소를 요청했다면 PAYMENT 취소 처리
+        /// * 그 외에 요청(ACCEPTED, COOKING, DELIVERING, COMPLETED)은 PAYMENT 상태를 변경하지 않는다.
+        processPaymentByOrderStatus(
+                order.getId(),
+                nextStatus,
+                reason
+        );
+
+        /// 6. 실제 주문 상태 변경
         order.changeStatus(nextStatus);
 
+        /// 7. 상태 변경 이력 생성
         OrderStatusHistory history = OrderStatusHistory.create(
                 order,
                 previousStatus,
@@ -326,9 +360,35 @@ public class OrderService {
                 reason
         );
 
+        /// 8. 상태 변경 이력 저장
         orderStatusHistoryRepository.save(history);
 
         return OrderStatusUpdateResponseDto.from(order);
+    }
+
+    /**
+     * 주문 상태 변경에 따라 Payment 상태 변경이 필요한 경우 처리
+     * 가게 소유주가 변경
+     */
+    private void processPaymentByOrderStatus(
+            UUID orderId,
+            OrderStatus nextStatus,
+            String reason
+    ) {
+        // 취소가 아닌 상태 변경은 Payment에 영향을 주지 않는다.
+        if (nextStatus != OrderStatus.CANCELED) {
+            return;
+        }
+
+        String cancelReason =
+                reason == null || reason.isBlank()
+                        ? "가게 주문 취소"
+                        : reason;
+
+        paymentService.cancelByOrder(
+                orderId,
+                cancelReason
+        );
     }
 
     // 권한 문자열을 UserRole Enum으로 변환 메서드
