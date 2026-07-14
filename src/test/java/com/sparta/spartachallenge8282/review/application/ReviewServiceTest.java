@@ -75,6 +75,7 @@ class ReviewServiceTest {
         // given
         UUID orderId = UUID.randomUUID();
         UUID storeId = UUID.randomUUID();
+        UUID fakeReviewId = UUID.randomUUID();
         Long userId = 1L;
 
         ReviewCreateRequestDto requestDto = new ReviewCreateRequestDto(
@@ -84,51 +85,44 @@ class ReviewServiceTest {
                 null
         );
 
-        Order order = Order.create(
-                "ORD-0001",
-                userId,
-                storeId,
-                10000,
-                0,
-                3000,
-                "서울시 종로구",
-                "3층",
-                "문 앞에 놔주세요"
-        );
-
-        ReflectionTestUtils.setField(
-                order,
-                "orderStatus",
-                OrderStatus.COMPLETED
-        );
+        /*
+         * 실제 Order 객체 대신 Mock을 사용해서
+         * userId, orderStatus, storeId를 명확하게 설정한다.
+         */
+        Order order = org.mockito.Mockito.mock(Order.class);
 
         when(orderRepository.findById(orderId))
                 .thenReturn(Optional.of(order));
 
+        when(order.getUserId())
+                .thenReturn(userId);
+
+        when(order.getOrderStatus())
+                .thenReturn(OrderStatus.COMPLETED);
+
+        when(order.getStoreId())
+                .thenReturn(storeId);
+
         when(reviewRepository.existsByOrderId(orderId))
                 .thenReturn(false);
 
-        Review savedReview = Review.builder()
-                .requestDto(requestDto)
-                .userId(userId)
-                .storeId(storeId)
-                .build();
-
-        UUID fakeReviewId = UUID.randomUUID();
-
-        ReflectionTestUtils.setField(
-                savedReview,
-                "id",
-                fakeReviewId
-        );
-
-        when(reviewRepository.save(any(Review.class)))
-                .thenReturn(savedReview);
-
         /*
-         * 리뷰 생성 후 refreshStoreReviewSummary()에서
-         * 사용하는 Mock 설정
+         * save()에 전달되는 Review 객체를 그대로 반환하면서
+         * ID만 설정한다.
          */
+        when(reviewRepository.save(any(Review.class)))
+                .thenAnswer(invocation -> {
+                    Review review = invocation.getArgument(0);
+
+                    ReflectionTestUtils.setField(
+                            review,
+                            "id",
+                            fakeReviewId
+                    );
+
+                    return review;
+                });
+
         Store store = org.mockito.Mockito.mock(Store.class);
 
         when(storeRepository.findByIdAndDeletedAtIsNull(storeId))
@@ -145,10 +139,13 @@ class ReviewServiceTest {
                 reviewService.createReview(requestDto, userId);
 
         // then
-        System.out.println("결과: " + result);
-
         assertThat(result).isNotNull();
         assertThat(result.reviewId()).isEqualTo(fakeReviewId);
+
+        verify(reviewRepository).save(any(Review.class));
+
+        verify(storeRepository)
+                .findByIdAndDeletedAtIsNull(storeId);
 
         verify(store).updateReviewSummary(
                 new BigDecimal("5.0"),
