@@ -260,4 +260,144 @@ class AiHistoryServiceTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("AI 설명 생성 및 메뉴 즉시 반영 성공")
+    void createAiHistoryAndApplyTest_success() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Long ownerId = 1L;
+
+        Menu menu = createMenu(storeId);
+        User owner = createOwner(ownerId);
+        Store store = createStore(owner, storeId);
+
+        AiHistoryCreateRequestDto requestDto = new AiHistoryCreateRequestDto(menu.getId(), null);
+
+        // createAiHistoryAndApply에서 한 번, saveAiHistoryAndApplyToMenu에서 한 번 - 총 두 번 조회됨
+        when(menuRepository.findById(menu.getId())).thenReturn(Optional.of(menu));
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+        when(geminiClient.generate(org.mockito.ArgumentMatchers.anyString())).thenReturn("맛있는 떡볶이입니다.");
+
+        AiHistory savedHistory = AiHistory.builder()
+                .menuId(menu.getId())
+                .requestedBy(ownerId)
+                .prompt("자동 생성 프롬프트")
+                .response("맛있는 떡볶이입니다.")
+                .isSuccess(true)
+                .build();
+        when(aiHistoryRepository.save(any(AiHistory.class))).thenReturn(savedHistory);
+
+        // when
+        AiHistoryResultResponseDto result = aiHistoryService.createAiHistoryAndApply(requestDto, ownerId);
+        System.out.println("결과: " + result);
+        System.out.println("메뉴 반영 확인: description=" + menu.getDescription() + ", isAiGenerated=" + menu.isAiGenerated());
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(menu.getDescription()).isEqualTo("맛있는 떡볶이입니다.");
+        assertThat(menu.isAiGenerated()).isTrue();
+
+        // menuRepository.findById가 두 번 호출됐는지 확인 (createAiHistoryAndApply + saveAiHistoryAndApplyToMenu)
+        org.mockito.Mockito.verify(menuRepository, org.mockito.Mockito.times(2)).findById(menu.getId());
+    }
+
+    @Test
+    @DisplayName("AI 설명 생성: Gemini 호출 실패 시 메뉴는 반영되지 않음")
+    void createAiHistoryAndApplyTest_gemini_fail() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Long ownerId = 1L;
+
+        Menu menu = createMenu(storeId);
+        User owner = createOwner(ownerId);
+        Store store = createStore(owner, storeId);
+
+        String originalDescription = menu.getDescription();
+
+        AiHistoryCreateRequestDto requestDto = new AiHistoryCreateRequestDto(menu.getId(), null);
+
+        when(menuRepository.findById(menu.getId())).thenReturn(Optional.of(menu));
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+        when(geminiClient.generate(org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new RuntimeException("Gemini API 호출 실패"));
+
+        AiHistory savedHistory = AiHistory.builder()
+                .menuId(menu.getId())
+                .requestedBy(ownerId)
+                .prompt("자동 생성 프롬프트")
+                .response(null)
+                .isSuccess(false)
+                .build();
+        when(aiHistoryRepository.save(any(AiHistory.class))).thenReturn(savedHistory);
+
+        // when
+        AiHistoryResultResponseDto result = aiHistoryService.createAiHistoryAndApply(requestDto, ownerId);
+        System.out.println("결과: " + result);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(menu.getDescription()).isEqualTo(originalDescription);   // 메뉴가 그대로인지 확인
+        assertThat(menu.isAiGenerated()).isFalse();
+
+        // 실패 시엔 saveAiHistoryAndApplyToMenu 안에서 menu를 재조회하지 않으므로 findById는 1번만 호출됨
+        org.mockito.Mockito.verify(menuRepository, org.mockito.Mockito.times(1)).findById(menu.getId());
+    }
+
+    @Test
+    @DisplayName("AI 설명 생성 및 반영 실패: 메뉴 없음")
+    void createAiHistoryAndApplyTest_fail_menu_not_found() {
+        // given
+        UUID menuId = UUID.randomUUID();
+        AiHistoryCreateRequestDto requestDto = new AiHistoryCreateRequestDto(menuId, null);
+
+        when(menuRepository.findById(menuId)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> aiHistoryService.createAiHistoryAndApply(requestDto, 1L))
+                .isInstanceOf(CustomException.class)
+                .satisfies(this::printException);
+    }
+
+    @Test
+    @DisplayName("AI 설명 생성 및 반영 실패: 가게 없음")
+    void createAiHistoryAndApplyTest_fail_store_not_found() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Menu menu = createMenu(storeId);
+        AiHistoryCreateRequestDto requestDto = new AiHistoryCreateRequestDto(menu.getId(), null);
+
+        when(menuRepository.findById(menu.getId())).thenReturn(Optional.of(menu));
+        when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> aiHistoryService.createAiHistoryAndApply(requestDto, 1L))
+                .isInstanceOf(CustomException.class)
+                .satisfies(this::printException);
+    }
+
+    @Test
+    @DisplayName("AI 설명 생성 및 반영 실패: 본인 가게가 아님")
+    void createAiHistoryAndApplyTest_fail_not_owner() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Long ownerId = 1L;
+        Long otherUserId = 999L;
+
+        Menu menu = createMenu(storeId);
+        User owner = createOwner(ownerId);
+        Store store = createStore(owner, storeId);
+
+        AiHistoryCreateRequestDto requestDto = new AiHistoryCreateRequestDto(menu.getId(), null);
+
+        when(menuRepository.findById(menu.getId())).thenReturn(Optional.of(menu));
+        when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+
+        // when & then
+        assertThatThrownBy(() -> aiHistoryService.createAiHistoryAndApply(requestDto, otherUserId))
+                .isInstanceOf(CustomException.class)
+                .satisfies(this::printException);
+    }
+
 }

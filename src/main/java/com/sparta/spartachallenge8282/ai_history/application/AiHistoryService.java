@@ -135,6 +135,63 @@ public class AiHistoryService {
     }
 
     /**
+     * AI로 메뉴 설명을 생성하고, 성공 시 메뉴에 즉시 반영까지 한다.
+     * createAiHistory()와 검증/생성 로직은 동일하나, 성공 시 Menu.description도 함께 갱신한다.
+     */
+    public AiHistoryResultResponseDto createAiHistoryAndApply(AiHistoryCreateRequestDto requestDto, Long userId) {
+
+        Menu menu = menuRepository.findById(requestDto.menuId())
+                .orElseThrow(() -> new CustomException(ErrorCode.MENU_NOT_FOUND_FOR_AI));
+
+        Store store = storeRepository.findById(menu.getStoreId())
+                .orElseThrow(() -> new CustomException(ErrorCode.STORE_NOT_FOUND));
+
+        if (!store.getOwner().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        String finalPrompt = buildPrompt(menu, requestDto.prompt());
+        String response;
+        boolean success;
+
+        try {
+            response = geminiClient.generate(finalPrompt);
+            success = true;
+        } catch (Exception e) {
+            log.error("Gemini API 호출 실패 : {}", e.getMessage());
+            response = null;
+            success = false;
+        }
+
+        return saveAiHistoryAndApplyToMenu(requestDto.menuId(), userId, finalPrompt, response, success);
+    }
+
+    /**
+     * DB 저장 + 성공 시 Menu 반영을 한 트랜잭션에서 처리하는 신규 메서드.
+     * 기존 saveAiHistory()는 그대로 두고 별도로 추가한다.
+     */
+    @Transactional
+    public AiHistoryResultResponseDto saveAiHistoryAndApplyToMenu(UUID menuId, Long userId,
+                                                                  String prompt, String response, boolean success) {
+        if (success) {
+            Menu menu = menuRepository.findById(menuId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.MENU_NOT_FOUND_FOR_AI));
+            menu.applyAiDescription(response);
+        }
+
+        AiHistory aiHistory = AiHistory.builder()
+                .menuId(menuId)
+                .requestedBy(userId)
+                .prompt(prompt)
+                .response(response)
+                .isSuccess(success)
+                .build();
+
+        return AiHistoryResultResponseDto.from(aiHistoryRepository.save(aiHistory));
+    }
+
+
+    /**
      * 사용자 프롬프트 유무에 따라 자동/수동 모드로 분기해 최종 프롬프트를 만든다.
      *
      * prompt가 null이거나 공백이면 자동 모드 - 메뉴 이름/가격만으로
@@ -151,4 +208,6 @@ public class AiHistoryService {
 
         return menu.getName() + "라는 메뉴가 있는데, 가격은 " + menu.getPrice() + "원이야. 이 메뉴를 소개하는 매력적인 설명을 50자 이내로 써줘.";
     }
+
+
 }

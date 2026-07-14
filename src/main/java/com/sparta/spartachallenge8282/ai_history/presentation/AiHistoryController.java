@@ -19,12 +19,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * AI 메뉴 설명 생성/조회 API.
+ * AI 메뉴 설명 생성/조회/반영 API.
  *
- * 생성(POST)과 조회(GET)만 있고 수정/삭제는 없다 - AiHistory가
- * 로그성 이력이라 한 번 생성되면 변경하지 않기 때문이다.
- * 생성된 설명을 실제 메뉴에 반영하는 것은 별도의 Menu 도메인 API
- * (PATCH /menus/{id}/ai-description)에서 처리한다.
+ * 생성만 하는 /ai/menu-description과 생성 후 즉시 메뉴에 반영하는
+ * /ai/menu-description/apply 두 가지 엔드포인트를 제공한다.
+ * AiHistory 자체는 로그성 이력이라 생성 후 수정/삭제는 없다.
  */
 
 @RestController
@@ -37,11 +36,11 @@ public class AiHistoryController {
     /**
      * AI로 메뉴 설명을 생성한다.
      *
-     * <p>자동/수동 모드 구분은 컨트롤러가 아닌 Service의 buildPrompt()에서
+     * 자동/수동 모드 구분은 컨트롤러가 아닌 Service의 buildPrompt()에서
      * 처리한다 - 요청 body의 prompt 필드 유무로 내부에서 자동 분기되므로
      * 엔드포인트는 단일하다.
      *
-     * <p>Gemini 호출이 실패해도 HTTP 200으로 응답한다
+     * Gemini 호출이 실패해도 HTTP 200으로 응답한다
      * (응답 body의 isSuccess=false로 실패 여부를 확인).
      */
 
@@ -67,4 +66,17 @@ public class AiHistoryController {
         List<AiHistoryItemResponseDto> responses = aiHistoryService.getAiHistories(menuId, pageable);
         return ResponseEntity.ok(ApiResponse.success("조회 성공", responses));
     }
+
+    /**
+     * AI로 메뉴를 생성 후 자동으로 반영
+     *
+     */
+    @PostMapping("/ai/menu-description/apply")
+    public ResponseEntity<ApiResponse<AiHistoryResultResponseDto>> createAiHistoryAndApply(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @Valid @RequestBody AiHistoryCreateRequestDto requestDto) {
+        AiHistoryResultResponseDto response = aiHistoryService.createAiHistoryAndApply(requestDto, userDetails.userId());
+        return ResponseEntity.ok(ApiResponse.success("AI 요청이 처리되고 메뉴에 반영되었습니다.", response));
+    }
+
 }
