@@ -11,6 +11,8 @@ import com.sparta.spartachallenge8282.review.presentation.dto.request.ReviewUpda
 import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewResponseDto;
 import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewResultResponseDto;
 import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewSliceResponseDto;
+import com.sparta.spartachallenge8282.review_reply.domain.ReviewReply;
+import com.sparta.spartachallenge8282.review_reply.domain.ReviewReplyRepository;
 import com.sparta.spartachallenge8282.store.domain.StoreRepository;
 import com.sparta.spartachallenge8282.user.domain.User;
 import com.sparta.spartachallenge8282.user.domain.UserRepository;
@@ -47,6 +49,8 @@ class ReviewServiceTest {
     private StoreRepository storeRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ReviewReplyRepository reviewReplyRepository;
 
     @InjectMocks
     private ReviewService reviewService;
@@ -76,7 +80,7 @@ class ReviewServiceTest {
         ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.COMPLETED);
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-        when(reviewRepository.existsByOrderId(orderId)).thenReturn(false);
+        when(reviewRepository.existsByOrderIdAndDeletedAtIsNull(orderId)).thenReturn(false);
 
         Review savedReview = Review.builder()
                 .requestDto(requestDto)
@@ -182,7 +186,7 @@ class ReviewServiceTest {
         ReflectionTestUtils.setField(order, "orderStatus", OrderStatus.COMPLETED);
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-        when(reviewRepository.existsByOrderId(orderId)).thenReturn(true);
+        when(reviewRepository.existsByOrderIdAndDeletedAtIsNull(orderId)).thenReturn(true);
 
         assertThatThrownBy(() -> reviewService.createReview(requestDto, userId))
                 .isInstanceOf(CustomException.class)
@@ -261,11 +265,13 @@ class ReviewServiceTest {
 
         when(reviewRepository.findByIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.of(review));
         when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(user));
+        when(reviewReplyRepository.findByReviewIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.empty());  // ← 추가
 
         ReviewResponseDto result = reviewService.getReview(reviewId);
         System.out.println("결과: " + result);
 
         assertThat(result).isNotNull();
+        assertThat(result.reply()).isNull();   // ← 검증도 추가하면 좋음
     }
 
     @Test
@@ -316,7 +322,7 @@ class ReviewServiceTest {
 
         when(reviewRepository.findByIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.of(review));
 
-        reviewService.deleteReview(reviewId, userId, "CUSTOMER");
+        reviewService.deleteReview(reviewId, userId, UserRole.CUSTOMER);
         System.out.println("삭제 완료: reviewId=" + reviewId + ", isDeleted=" + review.isDeleted());
     }
 
@@ -336,7 +342,7 @@ class ReviewServiceTest {
 
         when(reviewRepository.findByIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.of(review));
 
-        reviewService.deleteReview(reviewId, managerId, "MANAGER");
+        reviewService.deleteReview(reviewId, managerId, UserRole.MANAGER);
         System.out.println("삭제 완료: reviewId=" + reviewId + ", isDeleted=" + review.isDeleted());
     }
 
@@ -347,7 +353,7 @@ class ReviewServiceTest {
 
         when(reviewRepository.findByIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> reviewService.deleteReview(reviewId, 1L, "CUSTOMER"))
+        assertThatThrownBy(() -> reviewService.deleteReview(reviewId, 1L, UserRole.CUSTOMER))
                 .isInstanceOf(CustomException.class)
                 .satisfies(this::printException);
     }
@@ -368,7 +374,7 @@ class ReviewServiceTest {
 
         when(reviewRepository.findByIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.of(review));
 
-        assertThatThrownBy(() -> reviewService.deleteReview(reviewId, otherUserId, "CUSTOMER"))
+        assertThatThrownBy(() -> reviewService.deleteReview(reviewId, otherUserId, UserRole.CUSTOMER))
                 .isInstanceOf(CustomException.class)
                 .satisfies(this::printException);
     }
@@ -432,5 +438,45 @@ class ReviewServiceTest {
         assertThatThrownBy(() -> reviewService.updateReview(reviewId, otherUserId, updateDto))
                 .isInstanceOf(CustomException.class)
                 .satisfies(this::printException);
+    }
+
+    @Test
+    @DisplayName("리뷰 상세 조회 성공: 답글이 있으면 함께 반환된다")
+    void getReviewTest_withReply() {
+        UUID reviewId = UUID.randomUUID();
+        UUID storeId = UUID.randomUUID();
+        Long userId = 1L;
+
+        Review review = Review.builder()
+                .requestDto(new ReviewCreateRequestDto(UUID.randomUUID(), 5, "정말 맛있었어요!", null))
+                .userId(userId)
+                .storeId(storeId)
+                .build();
+        ReflectionTestUtils.setField(review, "id", reviewId);
+
+        User user = User.builder()
+                .email("test@test.com")
+                .password("encoded-pw")
+                .nickname("맛집탐험가")
+                .address("서울시 종로구")
+                .role(UserRole.CUSTOMER)
+                .build();
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        ReviewReply reply = ReviewReply.builder()
+                .reviewId(reviewId)
+                .storeId(storeId)
+                .content("감사합니다!")
+                .build();
+
+        when(reviewRepository.findByIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.of(review));
+        when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(user));
+        when(reviewReplyRepository.findByReviewIdAndDeletedAtIsNull(reviewId)).thenReturn(Optional.of(reply));
+
+        ReviewResponseDto result = reviewService.getReview(reviewId);
+        System.out.println("결과: " + result);
+
+        assertThat(result.reply()).isNotNull();
+        assertThat(result.reply().content()).isEqualTo("감사합니다!");
     }
 }
