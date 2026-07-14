@@ -14,6 +14,7 @@ import com.sparta.spartachallenge8282.order.domain.OrderItem;
 import com.sparta.spartachallenge8282.order.domain.OrderRepository;
 import com.sparta.spartachallenge8282.order.domain.OrderStatusHistoryRepository;
 import com.sparta.spartachallenge8282.payment.application.PaymentService;
+import com.sparta.spartachallenge8282.store.domain.StoreRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,9 @@ class OrderServiceTest {
      */
     @Mock
     private OrderStatusHistoryRepository orderStatusHistoryRepository;
+
+    @Mock
+    private StoreRepository storeRepository;
     /**
      *  paymentService
      */
@@ -63,6 +67,8 @@ class OrderServiceTest {
      */
     @Mock
     private MenuRepository menuRepository;
+
+
 
     /**
      * 실제로 테스트할 대상 객체
@@ -86,6 +92,7 @@ class OrderServiceTest {
         orderService = new OrderService(
                 orderRepository,
                 orderStatusHistoryRepository,
+                storeRepository,
                 paymentService,
                 menuRepository
         );
