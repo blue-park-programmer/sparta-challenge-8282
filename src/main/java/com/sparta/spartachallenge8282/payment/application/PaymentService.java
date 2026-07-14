@@ -375,4 +375,25 @@ public class PaymentService {
     private String normalizeKey(String idempotencyKey) {
         return (idempotencyKey == null || idempotencyKey.isBlank()) ? null : idempotencyKey;
     }
+
+    /**
+     * 주문을 가게에서 수락할 수 있는 결제 상태인지 검증
+     * 현재는 카드 선결제만 지원하므로
+     * PAID 상태의 결제가 존재해야 주문 수락이 가능하
+     * 향후 후불 결제가 추가되면 이 메서드 내부 정책을 확장.
+     */
+    @Transactional(readOnly = true)
+    public void validateOrderAcceptable(UUID orderId) {
+        Payment payment = paymentRepository
+                .findByOrder_IdAndDeletedAtIsNull(orderId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.PAYMENT_NOT_FOUND)
+                );
+
+        if (payment.getStatus() != PaymentStatus.PAID) {
+            throw new CustomException(
+                    ErrorCode.PAYMENT_NOT_COMPLETED
+            );
+        }
+    }
 }

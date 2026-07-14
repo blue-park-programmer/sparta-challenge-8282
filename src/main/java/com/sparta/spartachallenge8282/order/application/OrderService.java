@@ -359,6 +359,12 @@ public class OrderService {
         /// 3. 상태 변경 가능한지 검증
         validateStatusTransition(order.getOrderStatus(), nextStatus);
 
+         /// 주문 수락 요청일 경우 결제 완료 여부를 확인한다.
+        validatePaymentBeforeAccept(
+                order.getId(),
+                nextStatus
+        );
+
         /// 4. 이력 저장을 위한 변경 전 상태 보관
         OrderStatus previousStatus = order.getOrderStatus();
 
@@ -514,6 +520,22 @@ public class OrderService {
         if (!isValid) {
             throw new CustomException(ErrorCode.INVALID_ORDER_STATUS);
         }
+    }
+
+    /**
+     * 주문 수락 전에 결제 상태를 검증.
+     * 현재는 카드 선결제만 지원하므로
+     * ACCEPTED 상태 변경 전에 결제가 필요.
+     */
+    private void validatePaymentBeforeAccept(
+            UUID orderId,
+            OrderStatus nextStatus
+    ) {
+        if (nextStatus != OrderStatus.ACCEPTED) {
+            return;
+        }
+
+        paymentService.validateOrderAcceptable(orderId);
     }
 
 
