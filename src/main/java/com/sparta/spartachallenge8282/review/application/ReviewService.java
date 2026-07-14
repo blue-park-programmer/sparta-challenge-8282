@@ -73,11 +73,13 @@ public class ReviewService {
                 .storeId(order.getStoreId())
                 .build();
 
+        Review savedReview = reviewRepository.save(review);
+
         //리뷰 생성 후 리뷰 집계를 갱신
         refreshStoreReviewSummary(review.getStoreId());
 
         //생성이 완료되면 생성된 리뷰의 아이디를 반환
-        return ReviewResultResponseDto.from(reviewRepository.save(review).getId());
+        return ReviewResultResponseDto.from(savedReview.getId());
     }
 
     @Transactional(readOnly = true)
