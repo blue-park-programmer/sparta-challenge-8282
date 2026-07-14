@@ -15,6 +15,7 @@ import com.sparta.spartachallenge8282.order.presentation.dto.response.*;
 import com.sparta.spartachallenge8282.order.domain.OrderRepository;
 import com.sparta.spartachallenge8282.order.presentation.dto.request.OrderCreateRequestDto;
 import com.sparta.spartachallenge8282.order.domain.OrderStatusHistoryRepository;
+import com.sparta.spartachallenge8282.store.domain.StoreRepository;
 import com.sparta.spartachallenge8282.user.domain.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,6 +43,11 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    /**
+     * OWNER가 본인 가게 주문만 상태 변경할 수 있도록
+     * 주문의 storeId와 로그인 OWNER의 ID를 검증한다.
+     */
+    private final StoreRepository storeRepository;
 
     /**
      * 주문 취소 시 연결된 결제의 상태를 변경하기 위한 서비스
@@ -431,12 +437,53 @@ public class OrderService {
     ) {
         UserRole userRole = parseUserRole(authority);
 
-        if (userRole != UserRole.OWNER
-                && userRole != UserRole.MANAGER
-                && userRole != UserRole.MASTER) {
+        /*
+         * 관리자 권한은 전체 주문 상태를 변경할 수 있으므로
+         * 별도의 가게 소유권 검증 없이 통과한다.
+         */
+        if (userRole == UserRole.MANAGER
+                || userRole == UserRole.MASTER) {
+            return;
+        }
+
+        /*
+         * OWNER는 역할만으로 통과시키지 않고,
+         * 해당 주문의 가게가 본인 소유인지 추가 검증한다.
+         */
+        if (userRole == UserRole.OWNER) {
+            validateStoreOwner(
+                    order.getStoreId(),
+                    userId
+            );
+            return;
+        }
+
+        /*
+         * CUSTOMER 등 나머지 역할은
+         * 주문 상태 변경 권한이 없다.
+         */
+        throw new CustomException(ErrorCode.ACCESS_DENIED);
+    }
+
+    /**
+     * 주문의 가게가 현재 로그인한 OWNER의 가게인지 검증한다.
+     *
+     * @param storeId 주문이 접수된 가게 ID
+     * @param ownerId 현재 로그인한 OWNER의 사용자 ID
+     */
+    private void validateStoreOwner(
+            UUID storeId,
+            Long ownerId
+    ) {
+        boolean isOwner =
+                storeRepository.existsByIdAndOwner_IdAndDeletedAtIsNull(
+                        storeId,
+                        ownerId
+                );
+
+        if (!isOwner) {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
-        // TODO: Store 도메인 연동 후 OWNER가 본인 가게 주문만 변경 가능하도록 검증
     }
 
     // 상태 전이 검증 메서드
@@ -468,6 +515,8 @@ public class OrderService {
             throw new CustomException(ErrorCode.INVALID_ORDER_STATUS);
         }
     }
+
+
 
 
 
