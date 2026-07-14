@@ -38,6 +38,7 @@ public class OrderService {
     private static final int DEFAULT_DELIVERY_FEE = 3000;
     //쿠폰/프로모션 기능 연동 전 임시 할인 금액
     private static final int DEFAULT_DISCOUNT_AMOUNT = 0;
+    private static final String CUSTOMER_CANCEL_REASON = "고객 주문 취소";
 
     private final OrderRepository orderRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
@@ -265,7 +266,7 @@ public class OrderService {
         return PageResponse.from(orders);
     }
 
-    //주문 취소
+    //고객 주문 취소
     /*
     * todo: 검증 고민 사항들
     * 1. 가게가 5분이 넘도록 주문을 확인하지 않을 때? -> 자동 취소?
@@ -287,15 +288,31 @@ public class OrderService {
         // 주문 생성 후 5분 이내만 취소 가능
         validateCancelTimeLimit(order);
 
+        // 주문 상태 변경 전 값 저장
+        OrderStatus previousStatus = order.getOrderStatus();
+
         // PAYMENT가 존재하면 : PAID >  REFUNDED
         // PAYMENT가 없으면 : 아무 작업 없이 종료
         paymentService.refundByOrder(
                 order.getId(),
-                "고객 주문 취소"
+                CUSTOMER_CANCEL_REASON
         );
 
         // PENDING -> CANCELED
         order.cancel();
+
+        //
+        OrderStatusHistory history = OrderStatusHistory.create(
+                order,
+                previousStatus,
+                OrderStatus.CANCELED,
+                userId,
+                UserRole.CUSTOMER.getAuthority(),
+                CUSTOMER_CANCEL_REASON
+        );
+
+        // 8. 상태 변경 이력 저장
+        orderStatusHistoryRepository.save(history);
 
         return OrderDetailResponseDto.from(order);
     }
@@ -319,7 +336,7 @@ public class OrderService {
         }
     }
 
-    //주문 상태 변경 메서드
+    // 가게 주인의 주문 상태 변경 메서드
     @Transactional
     public OrderStatusUpdateResponseDto updateOrderStatus(
             Long userId,
