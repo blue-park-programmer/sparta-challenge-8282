@@ -82,7 +82,7 @@ public interface MenuRepository extends JpaRepository<Menu, UUID> {
     /**
      * STORE
      * 가게 활성화 조건
-     * 가게에 매뉴 1개이상 존재
+     * 가게에 매뉴 1개이상 존재 / 숨겨진 메뉴는 포함하지 않는다.
      */
-    boolean existsByStoreIdAndDeletedAtIsNull(UUID storeId);
+    boolean existsByStoreIdAndDeletedAtIsNullAndIsHiddenFalse(UUID storeId);
 }
