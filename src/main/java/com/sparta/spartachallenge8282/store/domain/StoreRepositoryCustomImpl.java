@@ -28,11 +28,15 @@ public class StoreRepositoryCustomImpl implements StoreRepositoryCustom {
     public Page<Store> searchStores(StoresSearchCondition condition, Pageable pageable) {
        QStore store = QStore.store;
 
+       BooleanBuilder whereCondition  = createWhereCondition(condition);
+
         List<Store> stores = jpaQueryFactory
                 .selectFrom(store)
-                .where(
-                        store.operationStatus.eq(StoreOperationStatus.ACTIVE)
-                        store.deletedAt.isNotNull()
+                .leftJoin(store.category).fetchJoin()
+                .leftJoin(store.region).fetchJoin()
+                .where(whereCondition)
+                .orderBy(
+                        resolveOrderSpecifiers(condition.sortType())
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -41,16 +45,14 @@ public class StoreRepositoryCustomImpl implements StoreRepositoryCustom {
         Long totalStores = jpaQueryFactory
                 .select(store.count())
                 .from(store)
-                .where(
-                        store.operationStatus.eq(StoreOperationStatus.ACTIVE),
-                        store.deletedAt.isNotNull()
-                )
+                .where(whereCondition)
                 .fetchOne();
 
         return new PageImpl<>(
                 stores,
                 pageable,
-                totalStores == null ? 0L : totalStores);
+                totalStores == null ? 0L : totalStores
+        );
     }
 
 
@@ -66,6 +68,11 @@ public class StoreRepositoryCustomImpl implements StoreRepositoryCustom {
         if(condition.categoryId() != null){
             builder.and(store.category.id.eq(condition.categoryId()));
         }
+        if (condition.regionId() != null) {
+            builder.and(
+                    store.region.id.eq(condition.regionId())
+            );
+        }
         if(condition.isOpen() != null){
             builder.and(store.isOpen.eq(condition.isOpen()));
         }
@@ -80,7 +87,7 @@ public class StoreRepositoryCustomImpl implements StoreRepositoryCustom {
                                             .from(menu)
                                             .where(
                                                     menu.storeId.eq(store.id),
-                                                    menu.deletedAt.isNotNull(),
+                                                    menu.deletedAt.isNull(),
                                                     menu.isHidden.isFalse(),
                                                     menu.name.containsIgnoreCase(keyword)
                                             )
@@ -91,7 +98,7 @@ public class StoreRepositoryCustomImpl implements StoreRepositoryCustom {
         return builder;
     }
 
-    private OrderSpecifier<?>[] resolveOrderSpecifier(StoreSortType sortType) {
+    private OrderSpecifier<?>[] resolveOrderSpecifiers(StoreSortType sortType) {
         if(sortType == null){
             return new OrderSpecifier<?>[]{
                     store.createdAt.desc(),
