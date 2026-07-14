@@ -6,11 +6,16 @@ import com.sparta.spartachallenge8282.menu.domain.Menu;
 import com.sparta.spartachallenge8282.menu.domain.MenuBadge;
 import com.sparta.spartachallenge8282.menu.domain.MenuRepository;
 import com.sparta.spartachallenge8282.menu.domain.MenuStatus;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOption;
+import com.sparta.spartachallenge8282.menu.option.domain.MenuOptionRepository;
+import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroup;
+import com.sparta.spartachallenge8282.menu.optiongroup.domain.MenuOptionGroupRepository;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuCreateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.request.MenuUpdateRequest;
 import com.sparta.spartachallenge8282.menu.presentation.dto.response.MenuResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -18,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -42,6 +48,12 @@ class MenuServiceTest {
     @Mock
     private MenuRepository menuRepository;
 
+    @Mock
+    private MenuOptionGroupRepository optionGroupRepository;
+
+    @Mock
+    private MenuOptionRepository optionRepository;
+
     @InjectMocks
     private MenuService menuService;
 
@@ -57,6 +69,28 @@ class MenuServiceTest {
                 .build();
     }
 
+    private MenuOptionGroup sampleGroup(UUID menuId) {
+        return MenuOptionGroup.builder()
+                .menuId(menuId)
+                .name("음료 선택")
+                .isRequired(true)
+                .minSelect(1)
+                .maxSelect(1)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+    }
+
+    private MenuOption sampleOption(UUID optionGroupId) {
+        return MenuOption.builder()
+                .optionGroupId(optionGroupId)
+                .name("콜라")
+                .additionalPrice(1000)
+                .sortOrder(1)
+                .isActive(true)
+                .build();
+    }
+
     // ── 생성 ────────────────────────────────────────────────────────────────
 
     @Test
@@ -65,7 +99,7 @@ class MenuServiceTest {
         UUID storeId = UUID.randomUUID();
         MenuCreateRequest request = new MenuCreateRequest(
                 "후라이드", "바삭한 후라이드", 18000, 1,
-                MenuStatus.ON_SALE, MenuBadge.NONE, false);
+                MenuStatus.ON_SALE, MenuBadge.NONE);
 
         UUID generatedId = UUID.randomUUID();
         Menu saved = sampleMenu(storeId);
@@ -85,7 +119,7 @@ class MenuServiceTest {
         UUID storeId = UUID.randomUUID();
         MenuCreateRequest request = new MenuCreateRequest(
                 "후라이드", "바삭한 후라이드", -1000, 1,
-                null, null, false);
+                null, null);
 
         // when
         CustomException exception = assertThrows(CustomException.class,
@@ -94,6 +128,25 @@ class MenuServiceTest {
         // then
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_MENU_PRICE);
         verify(menuRepository, never()).save(any());
+    }
+
+    @Test
+    void 메뉴생성_isAiGenerated는_항상_false로_저장된다() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        MenuCreateRequest request = new MenuCreateRequest(
+                "후라이드", "바삭한 후라이드", 18000, 1,
+                MenuStatus.ON_SALE, MenuBadge.NONE);
+
+        given(menuRepository.save(any(Menu.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        menuService.createMenu(storeId, request);
+
+        // then
+        ArgumentCaptor<Menu> captor = ArgumentCaptor.forClass(Menu.class);
+        verify(menuRepository).save(captor.capture());
+        assertThat(captor.getValue().isAiGenerated()).isFalse();
     }
 
     // ── 단건 조회 ──────────────────────────────────────────────────────────────
@@ -193,6 +246,100 @@ class MenuServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_MENU_PRICE);
     }
 
+    @Test
+    void 메뉴수정_다른_description이면_교체하고_isAiGenerated를_false로_내린다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Menu menu = sampleMenu(UUID.randomUUID());
+        ReflectionTestUtils.setField(menu, "id", id);
+        menu.applyAiDescription("AI 설명");
+        MenuUpdateRequest request = new MenuUpdateRequest(
+                null, "직접 수정한 설명", null, null, null, null);
+
+        given(menuRepository.findByIdAndDeletedAtIsNull(id)).willReturn(Optional.of(menu));
+
+        // when
+        MenuResponse result = menuService.updateMenu(id, request);
+
+        // then
+        assertThat(result.description()).isEqualTo("직접 수정한 설명");
+        assertThat(result.isAiGenerated()).isFalse();
+    }
+
+    @Test
+    void 메뉴수정_동일_description이면_isAiGenerated를_유지한다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Menu menu = sampleMenu(UUID.randomUUID());
+        ReflectionTestUtils.setField(menu, "id", id);
+        menu.applyAiDescription("AI 설명");
+        MenuUpdateRequest request = new MenuUpdateRequest(
+                null, "AI 설명", null, null, null, null);
+
+        given(menuRepository.findByIdAndDeletedAtIsNull(id)).willReturn(Optional.of(menu));
+
+        // when
+        MenuResponse result = menuService.updateMenu(id, request);
+
+        // then
+        assertThat(result.description()).isEqualTo("AI 설명");
+        assertThat(result.isAiGenerated()).isTrue();
+    }
+
+    @Test
+    void 메뉴수정_description이_null이면_기존_설명과_isAiGenerated를_유지한다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Menu menu = sampleMenu(UUID.randomUUID());
+        ReflectionTestUtils.setField(menu, "id", id);
+        menu.applyAiDescription("AI 설명");
+        MenuUpdateRequest request = new MenuUpdateRequest(
+                null, null, 19000, null, null, null);
+
+        given(menuRepository.findByIdAndDeletedAtIsNull(id)).willReturn(Optional.of(menu));
+
+        // when
+        MenuResponse result = menuService.updateMenu(id, request);
+
+        // then
+        assertThat(result.description()).isEqualTo("AI 설명");
+        assertThat(result.price()).isEqualTo(19000);
+        assertThat(result.isAiGenerated()).isTrue();
+    }
+
+    // ── AI 설명 반영 ──────────────────────────────────────────────────────────
+
+    @Test
+    void AI메뉴설명반영_성공하면_description을_수정하고_isAiGenerated를_true로_변경한다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Menu menu = sampleMenu(UUID.randomUUID());
+        ReflectionTestUtils.setField(menu, "id", id);
+
+        given(menuRepository.findByIdAndDeletedAtIsNull(id)).willReturn(Optional.of(menu));
+
+        // when
+        MenuResponse result = menuService.applyAiDescription(id, "AI가 생성한 바삭한 후라이드 설명");
+
+        // then
+        assertThat(result.description()).isEqualTo("AI가 생성한 바삭한 후라이드 설명");
+        assertThat(result.isAiGenerated()).isTrue();
+    }
+
+    @Test
+    void AI메뉴설명반영_없는id는_MENU_NOT_FOUND를_던진다() {
+        // given
+        UUID id = UUID.randomUUID();
+        given(menuRepository.findByIdAndDeletedAtIsNull(id)).willReturn(Optional.empty());
+
+        // when
+        CustomException exception = assertThrows(CustomException.class,
+                () -> menuService.applyAiDescription(id, "AI 설명"));
+
+        // then
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MENU_NOT_FOUND);
+    }
+
     // ── 삭제 ────────────────────────────────────────────────────────────────
 
     @Test
@@ -204,6 +351,7 @@ class MenuServiceTest {
         ReflectionTestUtils.setField(menu, "id", id);
 
         given(menuRepository.findById(id)).willReturn(Optional.of(menu));
+        given(optionGroupRepository.findAllByMenuIdAndDeletedAtIsNull(id)).willReturn(List.of());
 
         // when
         LocalDateTime deletedAt = menuService.deleteMenu(id, userId);
@@ -213,6 +361,33 @@ class MenuServiceTest {
         assertThat(menu.isDeleted()).isTrue();
         assertThat(menu.getDeletedAt()).isEqualTo(deletedAt);
         assertThat(menu.getDeletedBy()).isEqualTo(userId);
+    }
+
+    @Test
+    void 메뉴삭제_성공하면_하위옵션그룹과_옵션도_소프트삭제된다() {
+        // given
+        UUID id = UUID.randomUUID();
+        Long userId = 1L;
+        Menu menu = sampleMenu(UUID.randomUUID());
+        MenuOptionGroup group = sampleGroup(id);
+        MenuOption option = sampleOption(UUID.randomUUID());
+        ReflectionTestUtils.setField(menu, "id", id);
+        ReflectionTestUtils.setField(group, "id", UUID.randomUUID());
+        ReflectionTestUtils.setField(option, "id", UUID.randomUUID());
+
+        given(menuRepository.findById(id)).willReturn(Optional.of(menu));
+        given(optionGroupRepository.findAllByMenuIdAndDeletedAtIsNull(id)).willReturn(List.of(group));
+        given(optionRepository.findAllByOptionGroupIdAndDeletedAtIsNull(group.getId())).willReturn(List.of(option));
+
+        // when
+        menuService.deleteMenu(id, userId);
+
+        // then
+        assertThat(menu.isDeleted()).isTrue();
+        assertThat(group.isDeleted()).isTrue();
+        assertThat(option.isDeleted()).isTrue();
+        assertThat(group.getDeletedBy()).isEqualTo(userId);
+        assertThat(option.getDeletedBy()).isEqualTo(userId);
     }
 
     @Test
@@ -285,5 +460,22 @@ class MenuServiceTest {
 
         // then — 공개 목록은 숨김 제외(includeHidden=false), keyword 는 null→"" 로 전달
         verify(menuRepository).searchMenus(storeId, "", null, null, false, pageable);
+    }
+
+    @Test
+    void 목록조회_size가_허용값이_아니면_10으로_정규화해_검색한다() {
+        // given
+        UUID storeId = UUID.randomUUID();
+        Pageable requested = PageRequest.of(2, 25, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable normalized = PageRequest.of(2, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Menu> page = new PageImpl<>(List.of(), normalized, 0);
+
+        given(menuRepository.searchMenus(storeId, "", null, null, false, normalized)).willReturn(page);
+
+        // when
+        menuService.getMenuList(storeId, null, null, null, requested);
+
+        // then — page/sort 는 유지하고 size 만 10으로 보정한다
+        verify(menuRepository).searchMenus(storeId, "", null, null, false, normalized);
     }
 }

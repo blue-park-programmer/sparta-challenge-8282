@@ -60,6 +60,10 @@ public enum ErrorCode {
     STORE_ACTIVATION_NOT_ALLOWED(20008, HttpStatus.CONFLICT, "운영 준비 중인 가게만 활성화할 수 있습니다."),
     STORE_NOT_ACTIVE(20009, HttpStatus.CONFLICT, "활성화된 가게만 영업 상태를 변경할 수 있습니다."),
     STORE_MENU_REQUIRED(20010, HttpStatus.BAD_REQUEST, "가게를 활성화하려면 메뉴를 한 개 이상 등록해야 합니다."),
+    STORE_UPDATE_NOT_ALLOWED(20011, HttpStatus.CONFLICT, "삭제 요청 또는 삭제 처리된 가게는 수정할 수 없습니다."),
+    STORE_CLOSE_ALREADY_REQUESTED(20012, HttpStatus.CONFLICT, "이미 삭제 요청된 가게입니다."),
+    STORE_ALREADY_CLOSED(20013, HttpStatus.CONFLICT, "이미 삭제 처리된 가게입니다."),
+    STORE_CLOSE_NOT_REQUESTED(20014, HttpStatus.CONFLICT, "삭제 요청된 가게만 폐점 승인할 수 있습니다."),
 
     // ── Category (30001 ~ 30999) ──────────────────────────────────────────────
     CATEGORY_NOT_FOUND(30001, HttpStatus.NOT_FOUND, "카테고리를 찾을 수 없습니다."),
@@ -81,6 +85,18 @@ public enum ErrorCode {
     INVALID_MENU_PRICE(40004, HttpStatus.BAD_REQUEST, "메뉴 가격은 0원 이상이어야 합니다."),
     ALREADY_DELETED_MENU(40005, HttpStatus.CONFLICT, "이미 삭제된 메뉴입니다."),
 
+    // ── Menu Option Group (41001 ~ 41999) ────────────────────────────────────
+    OPTION_GROUP_NOT_FOUND(41001, HttpStatus.NOT_FOUND, "옵션 그룹을 찾을 수 없습니다."),
+    NO_OPTION_GROUP_PERMISSION(41002, HttpStatus.FORBIDDEN, "옵션 그룹 관리 권한이 없습니다."),
+    INVALID_OPTION_SELECT_RANGE(41003, HttpStatus.BAD_REQUEST, "옵션 선택 범위가 올바르지 않습니다."),
+    ALREADY_DELETED_OPTION_GROUP(41004, HttpStatus.CONFLICT, "이미 삭제된 옵션 그룹입니다."),
+
+    // ── Menu Option (42001 ~ 42999) ──────────────────────────────────────────
+    OPTION_NOT_FOUND(42001, HttpStatus.NOT_FOUND, "옵션을 찾을 수 없습니다."),
+    NO_OPTION_PERMISSION(42002, HttpStatus.FORBIDDEN, "옵션 관리 권한이 없습니다."),
+    INVALID_OPTION_PRICE(42003, HttpStatus.BAD_REQUEST, "옵션 추가 금액은 0원 이상이어야 합니다."),
+    ALREADY_DELETED_OPTION(42004, HttpStatus.CONFLICT, "이미 삭제된 옵션입니다."),
+
 
     // ── Order (50001 ~ 59999) ─────────────────────────────────────────────────
     ORDER_NOT_FOUND(50001, HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
@@ -99,6 +115,8 @@ public enum ErrorCode {
     PAYMENT_NOT_CANCELABLE(60007, HttpStatus.CONFLICT, "취소할 수 없는 결제 상태입니다."),
     PAYMENT_NOT_REFUNDABLE(60008, HttpStatus.CONFLICT, "환불할 수 없는 결제 상태입니다."),
     PAYMENT_USER_NOT_FOUND(60009, HttpStatus.NOT_FOUND, "존재하지 않는 유저입니다."),
+    PAYMENT_IDEMPOTENCY_KEY_CONFLICT(60010, HttpStatus.CONFLICT, "동일한 멱등키로 다른 결제 요청이 접수되었습니다."),
+    PAYMENT_ORDER_NOT_PAYABLE(60011, HttpStatus.CONFLICT, "결제할 수 없는 주문 상태입니다."),
 
 
     // ── AI (70001 ~ 79999) ────────────────────────────────────────────────────
