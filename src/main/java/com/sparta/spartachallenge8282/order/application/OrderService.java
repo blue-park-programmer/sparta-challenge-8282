@@ -15,6 +15,7 @@ import com.sparta.spartachallenge8282.order.presentation.dto.response.*;
 import com.sparta.spartachallenge8282.order.domain.OrderRepository;
 import com.sparta.spartachallenge8282.order.presentation.dto.request.OrderCreateRequestDto;
 import com.sparta.spartachallenge8282.order.domain.OrderStatusHistoryRepository;
+import com.sparta.spartachallenge8282.store.domain.StoreRepository;
 import com.sparta.spartachallenge8282.user.domain.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -38,9 +39,15 @@ public class OrderService {
     private static final int DEFAULT_DELIVERY_FEE = 3000;
     //쿠폰/프로모션 기능 연동 전 임시 할인 금액
     private static final int DEFAULT_DISCOUNT_AMOUNT = 0;
+    private static final String CUSTOMER_CANCEL_REASON = "고객 주문 취소";
 
     private final OrderRepository orderRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    /**
+     * OWNER가 본인 가게 주문만 상태 변경할 수 있도록
+     * 주문의 storeId와 로그인 OWNER의 ID를 검증한다.
+     */
+    private final StoreRepository storeRepository;
 
     /**
      * 주문 취소 시 연결된 결제의 상태를 변경하기 위한 서비스
@@ -265,7 +272,7 @@ public class OrderService {
         return PageResponse.from(orders);
     }
 
-    //주문 취소
+    //고객 주문 취소
     /*
     * todo: 검증 고민 사항들
     * 1. 가게가 5분이 넘도록 주문을 확인하지 않을 때? -> 자동 취소?
@@ -287,15 +294,31 @@ public class OrderService {
         // 주문 생성 후 5분 이내만 취소 가능
         validateCancelTimeLimit(order);
 
+        // 주문 상태 변경 전 값 저장
+        OrderStatus previousStatus = order.getOrderStatus();
+
         // PAYMENT가 존재하면 : PAID >  REFUNDED
         // PAYMENT가 없으면 : 아무 작업 없이 종료
         paymentService.refundByOrder(
                 order.getId(),
-                "고객 주문 취소"
+                CUSTOMER_CANCEL_REASON
         );
 
         // PENDING -> CANCELED
         order.cancel();
+
+        //
+        OrderStatusHistory history = OrderStatusHistory.create(
+                order,
+                previousStatus,
+                OrderStatus.CANCELED,
+                userId,
+                UserRole.CUSTOMER.getAuthority(),
+                CUSTOMER_CANCEL_REASON
+        );
+
+        // 8. 상태 변경 이력 저장
+        orderStatusHistoryRepository.save(history);
 
         return OrderDetailResponseDto.from(order);
     }
@@ -319,7 +342,7 @@ public class OrderService {
         }
     }
 
-    //주문 상태 변경 메서드
+    // 가게 주인의 주문 상태 변경 메서드
     @Transactional
     public OrderStatusUpdateResponseDto updateOrderStatus(
             Long userId,
@@ -335,6 +358,12 @@ public class OrderService {
         validateStatusUpdatePermission(order, userId, userRole);
         /// 3. 상태 변경 가능한지 검증
         validateStatusTransition(order.getOrderStatus(), nextStatus);
+
+         /// 주문 수락 요청일 경우 결제 완료 여부를 확인한다.
+        validatePaymentBeforeAccept(
+                order.getId(),
+                nextStatus
+        );
 
         /// 4. 이력 저장을 위한 변경 전 상태 보관
         OrderStatus previousStatus = order.getOrderStatus();
@@ -414,12 +443,53 @@ public class OrderService {
     ) {
         UserRole userRole = parseUserRole(authority);
 
-        if (userRole != UserRole.OWNER
-                && userRole != UserRole.MANAGER
-                && userRole != UserRole.MASTER) {
+        /*
+         * 관리자 권한은 전체 주문 상태를 변경할 수 있으므로
+         * 별도의 가게 소유권 검증 없이 통과한다.
+         */
+        if (userRole == UserRole.MANAGER
+                || userRole == UserRole.MASTER) {
+            return;
+        }
+
+        /*
+         * OWNER는 역할만으로 통과시키지 않고,
+         * 해당 주문의 가게가 본인 소유인지 추가 검증한다.
+         */
+        if (userRole == UserRole.OWNER) {
+            validateStoreOwner(
+                    order.getStoreId(),
+                    userId
+            );
+            return;
+        }
+
+        /*
+         * CUSTOMER 등 나머지 역할은
+         * 주문 상태 변경 권한이 없다.
+         */
+        throw new CustomException(ErrorCode.ACCESS_DENIED);
+    }
+
+    /**
+     * 주문의 가게가 현재 로그인한 OWNER의 가게인지 검증한다.
+     *
+     * @param storeId 주문이 접수된 가게 ID
+     * @param ownerId 현재 로그인한 OWNER의 사용자 ID
+     */
+    private void validateStoreOwner(
+            UUID storeId,
+            Long ownerId
+    ) {
+        boolean isOwner =
+                storeRepository.existsByIdAndOwner_IdAndDeletedAtIsNull(
+                        storeId,
+                        ownerId
+                );
+
+        if (!isOwner) {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
-        // TODO: Store 도메인 연동 후 OWNER가 본인 가게 주문만 변경 가능하도록 검증
     }
 
     // 상태 전이 검증 메서드
@@ -451,6 +521,24 @@ public class OrderService {
             throw new CustomException(ErrorCode.INVALID_ORDER_STATUS);
         }
     }
+
+    /**
+     * 주문 수락 전에 결제 상태를 검증.
+     * 현재는 카드 선결제만 지원하므로
+     * ACCEPTED 상태 변경 전에 결제가 필요.
+     */
+    private void validatePaymentBeforeAccept(
+            UUID orderId,
+            OrderStatus nextStatus
+    ) {
+        if (nextStatus != OrderStatus.ACCEPTED) {
+            return;
+        }
+
+        paymentService.validateOrderAcceptable(orderId);
+    }
+
+
 
 
 

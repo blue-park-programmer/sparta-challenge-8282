@@ -142,7 +142,7 @@ public class Order extends BaseEntity {
     // 주문 취소 처리
     // 주문 상태를 CANCELED로 변경하고 취소 시간을 기록
     public void cancel() {
-        this.canceledAt = LocalDateTime.now();
+        changeStatus(OrderStatus.CANCELED);
     }
 
     // 주문 상태 변경
