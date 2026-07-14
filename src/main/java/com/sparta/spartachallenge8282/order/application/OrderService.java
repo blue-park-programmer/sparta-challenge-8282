@@ -422,7 +422,8 @@ public class OrderService {
         // TODO: Store 도메인 연동 후 OWNER가 본인 가게 주문만 변경 가능하도록 검증
     }
 
-    //상태 전이 검증 메서드
+    // 상태 전이 검증 메서드
+    // 기능 구현 이후에 entity로 책임 인가할 계획
     private void validateStatusTransition(
             OrderStatus currentStatus,
             OrderStatus nextStatus
