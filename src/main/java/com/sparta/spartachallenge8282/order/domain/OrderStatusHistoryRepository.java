@@ -13,4 +13,7 @@ public interface OrderStatusHistoryRepository extends JpaRepository<OrderStatusH
     List<OrderStatusHistory> findAllByOrder_IdOrderByChangedAtAsc(
             UUID orderId
     );
+import java.util.UUID;
+
+public interface OrderStatusHistoryRepository extends JpaRepository<OrderStatusHistory, UUID> {
 }
