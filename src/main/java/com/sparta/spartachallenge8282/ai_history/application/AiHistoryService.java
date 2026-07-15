@@ -206,17 +206,6 @@ public class AiHistoryService {
         return AiHistoryResultResponseDto.from(aiHistoryRepository.save(aiHistory));
     }
 
-
-    /**
-     * 사용자 프롬프트 유무에 따라 자동/수동 모드로 분기해 최종 프롬프트를 만든다.
-     *
-     * prompt가 null이거나 공백이면 자동 모드 - 메뉴 이름/가격만으로
-     * 매력적인 설명을 생성하도록 요청한다.
-     * 값이 있으면 수동 모드 - "메뉴명: X. {userPrompt}" 형태로 결합해
-     * 사용자 의도를 반영한다.
-     */
-
-    // 자동모드 / 수동모드 -> 들어온 프롬프트 값에 따라서 분기한다. -> prompt가 null 이면 자동, 있으면 수동
     /**
      * AI 이력을 삭제한다. 로그성 데이터라 소유자 개념이 없어
      * MANAGER/MASTER만 삭제할 수 있으며, 물리 삭제(hard delete)로 처리한다.
@@ -234,6 +223,16 @@ public class AiHistoryService {
         aiHistoryRepository.delete(aiHistory);
     }
 
+
+    /**
+     * 사용자 프롬프트 유무에 따라 자동/수동 모드로 분기해 최종 프롬프트를 만든다.
+     *
+     * prompt가 null이거나 공백이면 자동 모드 - 메뉴 이름/가격만으로
+     * 매력적인 설명을 생성하도록 요청한다.
+     * 값이 있으면 수동 모드 - "메뉴명: X. {userPrompt}" 형태로 결합해
+     * 사용자 의도를 반영한다.
+     */
+    // 자동모드 / 수동모드 -> 들어온 프롬프트 값에 따라서 분기한다. -> prompt가 null 이면 자동, 있으면 수동
     private String buildPrompt(Menu menu, String userPrompt) {
         String base = (userPrompt != null && !userPrompt.isBlank())
                 ? "메뉴명: " + menu.getName() + ". " + userPrompt
