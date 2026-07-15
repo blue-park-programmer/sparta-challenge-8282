@@ -18,6 +18,7 @@ import com.sparta.spartachallenge8282.order.domain.OrderItem;
 import com.sparta.spartachallenge8282.order.domain.OrderRepository;
 import com.sparta.spartachallenge8282.order.domain.OrderStatusHistoryRepository;
 import com.sparta.spartachallenge8282.payment.application.PaymentService;
+import com.sparta.spartachallenge8282.store.domain.Store;
 import com.sparta.spartachallenge8282.store.domain.StoreRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +36,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,6 +88,12 @@ class OrderServiceTest {
     @Mock
     private MenuOptionGroupRepository menuOptionGroupRepository;
 
+    /**
+     * 주문 가능한 정상 가게를 표현하는 Mock 객체
+     */
+    @Mock
+    private Store store;
+
 
 
     /**
@@ -131,6 +139,7 @@ class OrderServiceTest {
     @DisplayName("판매 중인 메뉴를 이용해 주문을 생성할 수 있다")
     void createOrder_success() {
 
+
         // DB에서 조회됐다고 가정할 판매 중인 메뉴 생성
         Menu menu = createMenu(
                 menuId,
@@ -147,6 +156,9 @@ class OrderServiceTest {
                 menuId,
                 2
         );
+
+        // 주문 생성 전에 정상 가게가 조회되도록 준비
+        mockStoreForSuccessfulOrder(request.storeId());
 
         // 메뉴 조회 메서드가 호출되면 위에서 만든 메뉴를 반환하도록 설정
         when(menuRepository.findByIdAndDeletedAtIsNull(menuId))
@@ -240,6 +252,8 @@ class OrderServiceTest {
                 1
         );
 
+        mockExistingOrderableStore(request.storeId());
+
         // 메뉴 조회 결과가 없도록 설정
         when(menuRepository.findByIdAndDeletedAtIsNull(menuId))
                 .thenReturn(Optional.empty());
@@ -289,6 +303,8 @@ class OrderServiceTest {
                 1
         );
 
+        mockExistingOrderableStore(request.storeId());
+
         // 메뉴 조회 시 다른 가게의 메뉴를 반환
         when(menuRepository.findByIdAndDeletedAtIsNull(menuId))
                 .thenReturn(Optional.of(menu));
@@ -334,6 +350,7 @@ class OrderServiceTest {
                 menuId,
                 1
         );
+        mockExistingOrderableStore(request.storeId());
 
         // 메뉴 조회 시 숨김 처리된 메뉴 반환
         when(menuRepository.findByIdAndDeletedAtIsNull(menuId))
@@ -382,6 +399,8 @@ class OrderServiceTest {
                 menuId,
                 1
         );
+
+        mockExistingOrderableStore(request.storeId());
 
         // 메뉴 조회 시 품절 메뉴 반환
         when(menuRepository.findByIdAndDeletedAtIsNull(menuId))
@@ -521,6 +540,8 @@ class OrderServiceTest {
                         )
                 );
 
+        mockStoreForSuccessfulOrder(request.storeId());
+
         // 첫 번째 메뉴 조회 결과 설정
         when(menuRepository.findByIdAndDeletedAtIsNull(firstMenuId))
                 .thenReturn(Optional.of(firstMenu));
@@ -645,6 +666,8 @@ class OrderServiceTest {
                         List.of(orderItemRequest)
                 );
 
+        mockStoreForSuccessfulOrder(request.storeId());
+
         // 4. Repository Mock 동작 설정
         when(menuRepository.findByIdAndDeletedAtIsNull(menuId))
                 .thenReturn(Optional.of(menu));
@@ -728,5 +751,34 @@ class OrderServiceTest {
         // 양방향 연관관계 확인
         assertThat(savedOrderItem.getOptions().get(0).getOrderItem())
                 .isSameAs(savedOrderItem);
+    }
+    /**
+     * Store 조회와 상태 검증까지만 정상 통과하도록 준비한다.
+     *
+     * 메뉴 검증 과정에서 실패하는 테스트가 사용한다.
+     */
+    private void mockExistingOrderableStore(UUID storeId) {
+        when(storeRepository.findByIdAndDeletedAtIsNull(storeId))
+                .thenReturn(Optional.of(store));
+
+        /*
+         * store는 Mockito Mock 객체다.
+         *
+         * validateOrderable()은 void 메서드이므로
+         * 별도 설정이 없으면 아무 예외 없이 통과한다.
+         */
+    }
+
+    /**
+     * 주문 생성이 끝까지 성공하도록 Store와 배달비를 준비한다.
+     *
+     * 성공 테스트에서는 메뉴 검증 이후 배달비 계산까지 진행되므로
+     * calculateDeliveryFee() 반환값도 설정한다.
+     */
+    private void mockStoreForSuccessfulOrder(UUID storeId) {
+        mockExistingOrderableStore(storeId);
+
+        when(store.calculateDeliveryFee(anyInt()))
+                .thenReturn(3_000);
     }
 }

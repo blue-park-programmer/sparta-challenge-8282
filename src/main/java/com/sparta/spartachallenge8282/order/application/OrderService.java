@@ -14,6 +14,7 @@ import com.sparta.spartachallenge8282.order.domain.*;
 import com.sparta.spartachallenge8282.order.presentation.dto.request.OrderItemRequestDto;
 import com.sparta.spartachallenge8282.order.presentation.dto.response.*;
 import com.sparta.spartachallenge8282.order.presentation.dto.request.OrderCreateRequestDto;
+import com.sparta.spartachallenge8282.store.domain.Store;
 import com.sparta.spartachallenge8282.order.presentation.dto.request.OrderItemRequestDto;
 import com.sparta.spartachallenge8282.order.domain.Order;
 import com.sparta.spartachallenge8282.order.domain.OrderItem;
@@ -43,10 +44,9 @@ import java.util.UUID;
 @Transactional
 public class OrderService {
 
-    //store별 배달비 정책 결정 전까지 사용하는 임시 배달비
-    private static final int DEFAULT_DELIVERY_FEE = 3000;
     //쿠폰/프로모션 기능 연동 전 임시 할인 금액
     private static final int DEFAULT_DISCOUNT_AMOUNT = 0;
+    //고객 주문 취소시 전달 메시지
     private static final String CUSTOMER_CANCEL_REASON = "고객 주문 취소";
 
     private final OrderRepository orderRepository;
@@ -89,19 +89,38 @@ public class OrderService {
             Long userId,
             OrderCreateRequestDto request
     ) {
+
+        /*
+         * 1. 주문 대상 가게를 조회.
+         * 메뉴를 조회하기 전에 가게 자체가 존재하는지 먼저 확인
+         * 존재하지 않는 가게 요청에 STORE_NOT_FOUND를 반환.
+         */
+        Store store = findOrderableStore(request.storeId());
+
         // 메뉴 검증 및 dto 변환
         // 리스트를 이용하여 여러 메뉴 조회
         List<OrderItem> orderItems = createOrderItems(request);
 
-        // 금액 계산.
+        // 금액 계산 (메뉴 + 옵션 가격).
         int menuTotalPrice =
                 calculateMenuTotalPrice(orderItems);
 
-        // 위 두 정보를 이용해 주문 생성
+        // 가게의 최소 주문 금액 정책 검증.
+        // 배달비를 더하기 전의 메뉴 + 옵션 총액을 기준.
+        store.validateMinimumOrderAmount(menuTotalPrice);
+
+        // 기존 DEFAULT_DELIVERY_FEE 상수 대신 가게에 설정된 배달비 사용.
+        // * 가게의 무료 배달 정책을 포함하여
+        // * 주문에 적용할 최종 배달비를 계산.
+        int deliveryFee =
+                store.calculateDeliveryFee(menuTotalPrice);
+
+        // 서버가 계산한 메뉴 총액과 배달비를 이용해 주문 생성
         Order order = createOrderEntity(
                 userId,
                 request,
-                menuTotalPrice
+                menuTotalPrice,
+                deliveryFee
         );
 
         // 양방향 연관관계 설정
@@ -297,7 +316,8 @@ public class OrderService {
     private Order createOrderEntity(
             Long userId,
             OrderCreateRequestDto request,
-            int menuTotalPrice
+            int menuTotalPrice,
+            int deliveryFee
     ) {
         return Order.create(
                 createOrderNumber(),
@@ -305,11 +325,43 @@ public class OrderService {
                 request.storeId(),
                 menuTotalPrice,
                 DEFAULT_DISCOUNT_AMOUNT,
-                DEFAULT_DELIVERY_FEE,
+                deliveryFee,
                 request.deliveryAddress(),
                 request.deliveryDetailAddress(),
                 request.requestMessage()
         );
+    }
+
+    /**
+     * 주문 대상 가게를 조회하고 주문 가능한 상태인지 검증.
+     * 검증 순서:
+     * 1. 존재하며 삭제되지 않은 가게인지 확인
+     * 2. ACTIVE 상태인지 확인
+     * 3. 현재 영업 중인지 확인
+     */
+    private Store findOrderableStore(UUID storeId) {
+        /*
+         * deletedAt이 null인 가게만 조회한다.
+         *
+         * 삭제된 가게와 실제로 존재하지 않는 가게는
+         * 주문 생성 관점에서 모두 조회할 수 없는 가게로 처리한다.
+         */
+        Store store = storeRepository
+                .findByIdAndDeletedAtIsNull(storeId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                ErrorCode.STORE_NOT_FOUND
+                        )
+                );
+
+        /*
+         * Store가 자신의 운영 상태와 영업 여부를 직접 검증.
+         * ACTIVE가 아니면 STORE_NOT_ACTIVE,
+         * 영업 중이 아니면 STORE_CLOSED 예외 발생.
+         */
+        store.validateOrderable();
+
+        return store;
     }
 
 
@@ -388,9 +440,8 @@ public class OrderService {
     //고객 주문 취소
     /*
     * todo: 검증 고민 사항들
-    * 1. 가게가 5분이 넘도록 주문을 확인하지 않을 때? -> 자동 취소?
-    * 2. 주문 취소되면서 payment 환불 처리
-    * 3. 가능성이 낮지만, 고객과 가게가 동시에 취소하는 경우..? -> lock?
+    * 1. 가능성이 낮지만, 고객과 가게가 동시에 취소하는 경우 -> 동시성 처리
+    * 2. 가게가 5분이 넘도록 주문을 확인하지 않을 때? -> 자동 취소?
      */
     @Transactional
     public OrderDetailResponseDto cancelOrder(
