@@ -115,7 +115,7 @@ public class OrderService {
     /**
      * 주문 요청에 포함된 상품 목록을
      * 실제 OrderItem 목록으로 변환한다.
-    /*
+
     요청 DTO의 상품 목록을 실제 OrderItem 목록으로 변환
      */
     private List<OrderItem> createOrderItems(
@@ -149,7 +149,6 @@ public class OrderService {
 
         // 2. 주문 당시 메뉴 정보로 OrderItem 생성
         OrderItem orderItem = new OrderItem(
-        return new OrderItem(
                 menu.getId(),
                 menu.getName(),
                 menu.getPrice(),

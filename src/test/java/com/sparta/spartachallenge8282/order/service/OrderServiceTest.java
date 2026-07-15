@@ -115,7 +115,6 @@ class OrderServiceTest {
                 menuRepository,
                 menuOptionRepository,
                 menuOptionGroupRepository
-                menuRepository
         );
 
         customerId = 1L;
