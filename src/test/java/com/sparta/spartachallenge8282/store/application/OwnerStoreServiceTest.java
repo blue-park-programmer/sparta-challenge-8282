@@ -38,7 +38,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -332,6 +331,111 @@ class OwnerStoreServiceTest {
             ).isInstanceOf(CustomException.class);
 
             verify(store, never()).activate();
+        }
+    }
+
+    @Nested
+    @DisplayName("메뉴 존재 여부에 따른 운영상태 갱신")
+    class RefreshOperationStatusByMenusTest {
+
+        @Test
+        @DisplayName("ACTIVE 상태이고 공개 메뉴가 하나도 없으면 PREPARING으로 전환한다")
+        void refreshOperationStatusByMenus_activeWithNoPublicMenu_movesToPreparing() {
+            // given
+            Store store = mockStore(StoreOperationStatus.ACTIVE);
+
+            when(
+                    storeRepository.findByIdAndDeletedAtIsNull(storeId)
+            ).thenReturn(Optional.of(store));
+
+            when(
+                    menuRepository.existsByStoreIdAndDeletedAtIsNullAndIsHiddenFalse(storeId)
+            ).thenReturn(false);
+
+            // when
+            ownerStoreService.refreshOperationStatusByMenus(storeId);
+
+            // then
+            verify(store).preparing();
+        }
+
+        @Test
+        @DisplayName("ACTIVE 상태이고 공개 메뉴가 남아있으면 상태를 유지한다")
+        void refreshOperationStatusByMenus_activeWithPublicMenu_staysActive() {
+            // given
+            Store store = mockStore(StoreOperationStatus.ACTIVE);
+
+            when(
+                    storeRepository.findByIdAndDeletedAtIsNull(storeId)
+            ).thenReturn(Optional.of(store));
+
+            when(
+                    menuRepository.existsByStoreIdAndDeletedAtIsNullAndIsHiddenFalse(storeId)
+            ).thenReturn(true);
+
+            // when
+            ownerStoreService.refreshOperationStatusByMenus(storeId);
+
+            // then
+            verify(store, never()).preparing();
+        }
+
+        @Test
+        @DisplayName("ACTIVE 상태가 아니면 공개 메뉴가 없어도 상태를 변경하지 않는다")
+        void refreshOperationStatusByMenus_notActive_doesNothing() {
+            // given
+            Store store = mockStore(StoreOperationStatus.PREPARING);
+
+            when(
+                    storeRepository.findByIdAndDeletedAtIsNull(storeId)
+            ).thenReturn(Optional.of(store));
+
+            when(
+                    menuRepository.existsByStoreIdAndDeletedAtIsNullAndIsHiddenFalse(storeId)
+            ).thenReturn(false);
+
+            // when
+            ownerStoreService.refreshOperationStatusByMenus(storeId);
+
+            // then
+            verify(store, never()).preparing();
+        }
+
+        @Test
+        @DisplayName("CLOSE_REQUESTED 상태이면 공개 메뉴가 없어도 상태를 변경하지 않는다")
+        void refreshOperationStatusByMenus_closeRequested_doesNothing() {
+            // given
+            Store store = mockStore(StoreOperationStatus.CLOSE_REQUESTED);
+
+            when(
+                    storeRepository.findByIdAndDeletedAtIsNull(storeId)
+            ).thenReturn(Optional.of(store));
+
+            when(
+                    menuRepository.existsByStoreIdAndDeletedAtIsNullAndIsHiddenFalse(storeId)
+            ).thenReturn(false);
+
+            // when
+            ownerStoreService.refreshOperationStatusByMenus(storeId);
+
+            // then
+            verify(store, never()).preparing();
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 가게이면 예외가 발생한다")
+        void refreshOperationStatusByMenus_storeNotFound() {
+            // given
+            when(
+                    storeRepository.findByIdAndDeletedAtIsNull(storeId)
+            ).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() ->
+                    ownerStoreService.refreshOperationStatusByMenus(storeId)
+            ).isInstanceOf(CustomException.class);
+
+            verifyNoInteractions(menuRepository);
         }
     }
 
