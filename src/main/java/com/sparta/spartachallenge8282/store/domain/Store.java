@@ -2,6 +2,8 @@ package com.sparta.spartachallenge8282.store.domain;
 
 import com.sparta.spartachallenge8282.category.domain.Category;
 import com.sparta.spartachallenge8282.global.common.BaseEntity;
+import com.sparta.spartachallenge8282.global.exception.CustomException;
+import com.sparta.spartachallenge8282.global.exception.ErrorCode;
 import com.sparta.spartachallenge8282.region.domain.Region;
 import com.sparta.spartachallenge8282.user.domain.User;
 import jakarta.persistence.*;
@@ -244,4 +246,44 @@ public class Store extends BaseEntity {
         this.storeRating = storeRating;
         this.reviewCount = reviewCount;
     }
+    /**
+     * 현재 가게가 주문을 받을 수 있는 상태인지 검증.
+     * 가게의 운영 상태와 영업 여부는 Store가 직접 관리하는 상태이므로
+     * 외부 서비스에서 필드를 하나씩 비교하지 않고 Store가 판단.
+     */
+    public void validateOrderable() {
+        // ACTIVE 상태가 아니라면 주문을 받을 수 없다.
+        // PREPARING, CLOSE_REQUESTED, CLOSED 상태 모두 주문 불가
+        if (this.operationStatus != StoreOperationStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.STORE_NOT_ACTIVE);
+        }
+
+        // ACTIVE 상태더라도 현재 영업 중이 아니라면 주문을 받을 수 없다.
+        if (!this.isOpen) {
+            throw new CustomException(ErrorCode.STORE_CLOSED);
+        }
+    }
+
+    /**
+     * 주문 상품 총액이 가게의 최소 주문 금액을 충족하는지 검증.
+     * 배달비는 최소 주문 금액 계산에 포함하지 않는다.
+     * 메뉴 가격과 옵션 가격을 합한 menuTotalPrice를 기준으로 검증.
+     */
+    public void validateMinimumOrderAmount(int menuTotalPrice) {
+        if (menuTotalPrice < this.minOrderPrice) {
+            throw new CustomException(
+                    ErrorCode.MINIMUM_ORDER_AMOUNT_NOT_MET
+            );
+        }
+    }
+
+    /**
+     * 현재 가게에 설정된 기본 배달비를 반환한다.
+     * 이번 단계에서는 무료 배달 정책을 적용하지 않고,
+     * 가게별 기본 배달비만 주문에 반영한다.
+     * @Getter 있기 때문에 아래 코드  사용 X
+     */
+//    public int getOrderDeliveryFee() {
+//        return this.deliveryFee;
+//    }
 }
