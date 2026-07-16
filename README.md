@@ -79,11 +79,11 @@ src
 ### Backend
 
 | 기술              | 버전     |
-| --------------- | ------ |
+| --------------- |--------|
 | Java            | 17     |
 | Spring Boot     | 3.5.3  |
-| Spring Security | 6.x    |
-| Spring Data JPA | 3.x    |
+| Spring Security | 6.5.1  |
+| Spring Data JPA | 3.5.1  |
 | QueryDSL        | 5.1.0  |
 | JWT (jjwt)      | 0.12.3 |
 | Lombok          | Latest |
