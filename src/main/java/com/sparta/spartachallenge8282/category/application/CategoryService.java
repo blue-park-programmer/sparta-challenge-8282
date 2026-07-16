@@ -76,9 +76,22 @@ public class CategoryService {
         String searchKeyword = (keyword == null) ? "" : keyword;   // keyword 없으면 LIKE '%%'로 전체 조회
         Pageable normalizedPageable = PageableUtil.normalize(pageable);
 
-        // 공개 조회는 활성 항목만 노출한다.
-        // TODO(관리자 확장): 비활성 포함 전체 조회는 admin 엔드포인트에서 searchCategories에 isActive를 전달해 재사용한다.
+        // 공개 조회는 활성 항목만 노출한다. 비활성 포함 조회는 관리용 getManageCategoryList 를 사용한다.
         return categoryRepository.searchCategories(searchKeyword, true, normalizedPageable)
+                .map(CategoryResponse::from);
+    }
+
+    /**
+     * 관리용 카테고리 목록 검색 — 비활성 항목 포함. (GET /api/v1/categories/manage)
+     *
+     * <p>공개 목록과 달리 MANAGER/MASTER 인증이 필요하며(권한은 Controller {@code @PreAuthorize}),
+     * {@code isActive} 로 활성/비활성을 필터링할 수 있다. null 이면 활성·비활성 모두 조회한다.
+     */
+    public Page<CategoryResponse> getManageCategoryList(String keyword, Boolean isActive, Pageable pageable) {
+        String searchKeyword = (keyword == null) ? "" : keyword;
+        Pageable normalizedPageable = PageableUtil.normalize(pageable);
+
+        return categoryRepository.searchCategories(searchKeyword, isActive, normalizedPageable)
                 .map(CategoryResponse::from);
     }
 

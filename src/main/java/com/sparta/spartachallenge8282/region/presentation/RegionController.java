@@ -59,6 +59,23 @@ public class RegionController {
         return ResponseEntity.ok(ApiResponse.success("지역 목록 조회 성공", data));
     }
 
+    /**
+     * 관리용 지역 목록 — 비활성 항목 포함.
+     *
+     * <p>공개 목록({@code GET /regions})과 노출 정책이 섞이지 않도록 경로를 분리했다.
+     * MANAGER/MASTER 만 접근 가능하며, {@code isActive} 로 활성/비활성을 필터링한다(미지정 시 전체).
+     */
+    @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
+    @GetMapping("/manage")
+    public ResponseEntity<ApiResponse<PageResponse<RegionResponse>>> getManageRegionList(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean isActive,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        PageResponse<RegionResponse> data =
+                PageResponse.from(regionService.getManageRegionList(keyword, isActive, pageable));
+        return ResponseEntity.ok(ApiResponse.success("관리용 지역 목록 조회 성공", data));
+    }
+
     @PreAuthorize("hasAnyAuthority('ROLE_MANAGER', 'ROLE_MASTER')")
     @PatchMapping("/{regionId}")
     public ResponseEntity<ApiResponse<RegionResponse>> updateRegion(
