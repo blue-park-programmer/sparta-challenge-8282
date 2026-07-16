@@ -10,6 +10,7 @@ import com.sparta.spartachallenge8282.review.presentation.dto.request.ReviewUpda
 import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewResponseDto;
 import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewResultResponseDto;
 import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewSliceResponseDto;
+import com.sparta.spartachallenge8282.review.presentation.dto.response.ReviewSummaryResponseDto;
 import com.sparta.spartachallenge8282.user.domain.UserRole;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -95,5 +96,15 @@ public class ReviewController {
         reviewService.deleteReview(reviewId, userDetails.userId(), role);
 
         return ResponseEntity.ok(ApiResponse.success("리뷰가 삭제되었습니다."));
+    }
+
+    // 리뷰 요약
+    @GetMapping("/reviews/summary")
+    public ResponseEntity<ApiResponse<ReviewSummaryResponseDto>> summarizeReviews(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestParam UUID storeId) {
+
+        ReviewSummaryResponseDto response = reviewService.summarizeReviews(storeId);
+        return ResponseEntity.ok(ApiResponse.success("리뷰 요약 생성 성공", response));
     }
 }

@@ -1,5 +1,6 @@
 package com.sparta.spartachallenge8282.review.application;
 
+import com.sparta.spartachallenge8282.ai_history.infrastructure.GeminiClient;
 import com.sparta.spartachallenge8282.order.entity.Order;
 import com.sparta.spartachallenge8282.order.enums.OrderStatus;
 import com.sparta.spartachallenge8282.order.repository.OrderRepository;
@@ -35,7 +36,7 @@ class ReviewSummaryTest {
     private UserRepository userRepository;
     private StoreRepository storeRepository;
     private ReviewReplyRepository reviewReplyRepository;
-
+    private GeminiClient geminiClient;
     private ReviewService reviewService;
 
     private Long userId;
@@ -55,13 +56,14 @@ class ReviewSummaryTest {
         userRepository = mock(UserRepository.class);
         storeRepository = mock(StoreRepository.class);
         reviewReplyRepository = mock(ReviewReplyRepository.class);
-
+        geminiClient = mock(GeminiClient.class);
         reviewService = new ReviewService(
                 reviewRepository,
                 orderRepository,
                 userRepository,
                 storeRepository,
-                reviewReplyRepository
+                reviewReplyRepository,
+                geminiClient
         );
 
         userId = 1L;
